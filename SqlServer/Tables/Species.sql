@@ -1,0 +1,5 @@
+CREATE TABLE dbo.Species
+(
+    Id INT NOT NULL PRIMARY KEY,
+    Name NVARCHAR(255) NOT NULL
+);

@@ -1,0 +1,1379 @@
+﻿@page
+@model IndexModel
+@{
+    Layout = null;
+    var title = $"SQL Commander: {Model.ServerName}/{Model.DatabaseName}";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@title</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.css">
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/sqlcommander.css" />
+</head>
+<body>
+    <div class="container">
+        <div class="main-content">
+            <div class="left-pane">
+                <div class="filter-box">
+                    <input type="text" id="filterInput" placeholder="Filter objects..." oninput="app.filterTree(this.value)">
+                    <button id="clearFilterBtn" onclick="app.clearFilter()" title="Clear filter" style="display: none;">✕</button>
+                </div>
+                <div class="tree-container" id="treeContainer">
+                    <div class="loading">Loading metadata...</div>
+                </div>
+                <div class="schema-download">
+                    <button id="refreshMetadataBtn" type="button">Refresh Metadata</button>
+                    <button id="viewSchemaBtn" type="button">View Schema</button>
+                </div>
+            </div>
+
+            <div class="vertical-resizer" id="verticalResizer"></div>
+
+            <div class="right-pane">
+                <div class="editor-container">
+                    <div class="editor-toolbar">
+                        <div class="toolbar-left">
+                            <button id="executeBtn" class="execute" onclick="app.executeQuery()" title="Execute (Ctrl+E)">▶ Execute</button>
+                            <button id="cancelBtn" onclick="app.cancelQuery()" style="display: none;">⬛ Cancel</button>
+                        </div>
+                        <div class="toolbar-right">
+                            <button onclick="app.showSettings()">Settings</button>
+                        </div>
+                    </div>
+                    <div class="editor">
+                        <div id="sqlEditor"></div>
+                    </div>
+                </div>
+                <div class="horizontal-resizer" id="horizontalResizer"></div>
+                <div class="results-container" id="resultsContainer">
+                    <div style="color: var(--text-secondary); font-size: 13px;">No results to display.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-left">
+                <span><span class="status-value" id="statusConnection">Disconnected</span></span>
+                <span><span class="status-label">Database:</span> <span class="status-value" id="statusDatabase">N/A</span></span>
+                <span><span class="status-label">User:</span> <span class="status-value" id="statusUser">N/A</span></span>
+            </div>
+            <div class="status-right">
+                <span><span class="status-label">Query:</span> <span class="status-value" id="statusQuery">Idle</span></span>
+                <span id="statusTime"></span>
+                <span id="statusRows"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal" onclick="app.handleModalClick(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">Settings</div>
+            <div class="form-group">
+                <label>Server</label>
+                <input type="text" id="settingServer" placeholder="localhost">
+            </div>
+            <div class="form-group">
+                <label>Database</label>
+                <input type="text" id="settingDatabase" placeholder="master">
+            </div>
+            <div class="form-group">
+                <label>User ID</label>
+                <input type="text" id="settingUserId" placeholder="sa">
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <div class="password-wrapper">
+                    <input type="password" id="settingPassword">
+                    <button type="button" class="password-toggle" onclick="app.togglePasswordVisibility()">👁️</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="settingTrustServerCert" checked style="width: auto; margin-right: 8px;">
+                    Trust Server Certificate
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="settingConfirmActions" style="width: auto; margin-right: 8px;">
+                    Show confirmation dialogs before actions
+                </label>
+            </div>
+            <div class="form-group">
+                <label>Theme</label>
+                <select id="settingTheme" style="width: 100%; padding: 8px; border-radius: 2px;">
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Default Result Limit</label>
+                <input type="number" id="settingResultLimit" value="100" min="1">
+            </div>
+            <div class="modal-actions">
+                <button onclick="app.testConnection()">Test Connection</button>
+                <div class="modal-actions-right">
+                    <button class="secondary" onclick="app.hideSettings()">Cancel</button>
+                    <button onclick="app.saveSettings()">Save</button>
+                </div>
+            </div>
+            <div style="margin-top: 12px; text-align: center;">
+                <a href="#" class="delete-settings-link" onclick="app.deleteSettings(); return false;">Delete Settings File</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schema Modal -->
+    <div class="modal" id="schemaModal" onclick="app.handleModalClick(event)">
+        <div class="modal-content schema-modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Database Schema</span>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <span style="font-size: 12px; color: var(--text-secondary);">Zoom:</span>
+                        <button onclick="app.zoomSchema(0.8)" style="padding: 4px 8px; font-size: 12px;">−</button>
+                        <button onclick="app.zoomSchema(1.25)" style="padding: 4px 8px; font-size: 12px;">+</button>
+                        <button onclick="app.zoomSchema('reset')" style="padding: 4px 8px; font-size: 12px;">Reset</button>
+                    </div>
+                </div>
+            </div>
+            <div id="schemaContainer"></div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="secondary" onclick="app.hideSchema()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script>
+        const app = {
+            metadata: null,
+            queryRunning: false,
+            startTime: null,
+            timerInterval: null,
+            settings: null,
+            editor: null,
+            mermaidPromise: null,
+            currentSchemaScale: 1.8,
+            baseSchemaWidth: 800,
+
+            async init() {
+                await this.loadSettings();
+                this.initEditor();
+                this.bindUiActions();
+                await this.loadMetadata();
+                this.setupKeyboardShortcuts();
+                this.setupResizers();
+            },
+
+            bindUiActions() {
+                const refreshBtn = document.getElementById('refreshMetadataBtn');
+                if (refreshBtn && !refreshBtn.dataset.bound) {
+                    refreshBtn.addEventListener('click', () => this.refreshMetadata());
+                    refreshBtn.dataset.bound = 'true';
+                }
+
+                const viewSchemaBtn = document.getElementById('viewSchemaBtn');
+                if (viewSchemaBtn && !viewSchemaBtn.dataset.bound) {
+                    viewSchemaBtn.addEventListener('click', () => this.showSchema());
+                    viewSchemaBtn.dataset.bound = 'true';
+                }
+            },
+
+            getMermaidConfig() {
+                const isLightTheme = this.settings && this.settings.theme === 'light';
+                return {
+                    startOnLoad: false,
+                    theme: isLightTheme ? 'default' : 'dark',
+                    er: {
+                        useMaxWidth: true,
+                        fontSize: 14,
+                        layoutDirection: 'TB'
+                    },
+                    flowchart: {
+                        useMaxWidth: true
+                    }
+                };
+            },
+
+            loadMermaid() {
+                if (!this.mermaidPromise) {
+                    this.mermaidPromise = new Promise((resolve, reject) => {
+                        const initializeMermaid = () => {
+                            try {
+                                mermaid.initialize(this.getMermaidConfig());
+                                resolve();
+                            } catch (configError) {
+                                reject(configError);
+                            }
+                        };
+
+                        if (typeof mermaid !== 'undefined') {
+                            initializeMermaid();
+                            return;
+                        }
+
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+                        script.onload = initializeMermaid;
+                        script.onerror = () => reject(new Error('Failed to load Mermaid script.'));
+                        document.body.appendChild(script);
+                    });
+                }
+                return this.mermaidPromise;
+            },
+
+            initEditor() {
+                require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+                require(['vs/editor/editor.main'], () => {
+                    this.editor = monaco.editor.create(document.getElementById('sqlEditor'), {
+                        value: '-- Enter SQL query...',
+                        language: 'sql',
+                        theme: this.settings.theme === 'light' ? 'vs' : 'vs-dark',
+                        automaticLayout: true,
+                        minimap: { enabled: false },
+                        fontSize: 14,
+                        fontFamily: 'Consolas, "Courier New", monospace',
+                    });
+                });
+            },
+
+            async loadSettings() {
+                const response = await fetch('?handler=Settings');
+                const settings = await response.json();
+                this.settings = settings;
+                
+                // Apply theme
+                const theme = settings.theme || 'dark';
+                if (theme === 'light') {
+                    document.body.classList.add('light-theme');
+                } else {
+                    document.body.classList.remove('light-theme');
+                }
+                
+                // Only update status bar info, but don't mark as connected yet
+                // Connection status will be updated after successful metadata load
+                if (settings.server) {
+                    document.getElementById('statusDatabase').textContent = settings.database;
+                    document.getElementById('statusUser').textContent = settings.userId;
+                    document.title = `SQL Commander: ${settings.server}/${settings.database}`;
+                }
+            },
+
+            async loadMetadata() {
+                const container = document.getElementById('treeContainer');
+                const refreshBtn = document.getElementById('refreshMetadataBtn');
+                const statusElement = document.getElementById('statusConnection');
+                
+                // Show loading state
+                container.innerHTML = '<div class="loading">⏳ Loading metadata...</div>';
+                if (refreshBtn) {
+                    refreshBtn.disabled = true;
+                    refreshBtn.textContent = 'Loading...';
+                }
+
+                try {
+                    console.log('Fetching metadata...');
+                    const response = await fetch('?handler=Metadata');
+                    console.log('Response received:', response.status);
+                    const result = await response.json();
+                    console.log('Result parsed:', result);
+
+                    if (!result.success) {
+                        container.innerHTML = `<div class="error">${result.error}</div>`;
+                        statusElement.textContent = 'Failed';
+                        statusElement.className = 'status-value failed';
+                        return;
+                    }
+
+                    this.metadata = result.data;
+                    console.log('Metadata loaded, rendering tree...');
+                    this.renderTree();
+                    console.log('Tree rendered');
+                    
+                    // Update connection status to connected after successful metadata load
+                    statusElement.textContent = 'Connected';
+                    statusElement.className = 'status-value connected';
+                } catch (error) {
+                    console.error('Error loading metadata:', error);
+                    container.innerHTML = `<div class="error">Failed to load metadata: ${error.message}</div>`;
+                    statusElement.textContent = 'Failed';
+                    statusElement.className = 'status-value failed';
+                } finally {
+                    // Restore button state
+                    if (refreshBtn) {
+                        refreshBtn.disabled = false;
+                        refreshBtn.textContent = 'Refresh Metadata';
+                    }
+                }
+            },
+
+            renderTree() {
+                const container = document.getElementById('treeContainer');
+                const data = this.metadata;
+
+                let html = '';
+
+                // Tables
+                if (data.tables && data.tables.length > 0) {
+                    html += this.renderCategory('Tables', data.tables, 'table');
+                }
+
+                // Views
+                if (data.views && data.views.length > 0) {
+                    html += this.renderCategory('Views', data.views, 'view');
+                }
+
+                // Stored Procedures
+                if (data.storedProcedures && data.storedProcedures.length > 0) {
+                    html += this.renderCategory('Stored Procedures', data.storedProcedures, 'proc');
+                }
+
+                container.innerHTML = html || '<div style="color: var(--text-secondary); padding: 12px;">No objects found</div>';
+            },
+
+            renderCategory(title, items, type) {
+                const isTablesCategory = title === 'Tables';
+                const categoryClass = isTablesCategory ? 'expanded' : 'collapsed';
+                const categoryIcon = isTablesCategory ? 'v' : '>';
+                
+                let html = `<div class="tree-node ${categoryClass}" data-type="category">
+                    <div class="tree-label" onclick="app.selectTreeNode(event)">
+                        <span class="tree-icon" onclick="app.toggleNode(event)">${categoryIcon}</span>
+                        <strong>${title}</strong> (${items.length})
+                    </div>
+                    <div class="tree-children">`;
+
+                // Group by schema
+                const bySchema = {};
+                items.forEach(item => {
+                    if (!bySchema[item.schema]) bySchema[item.schema] = [];
+                    bySchema[item.schema].push(item);
+                });
+
+                Object.keys(bySchema).sort().forEach(schema => {
+                    const schemaCount = bySchema[schema].length;
+                    html += `<div class="tree-node collapsed" data-type="schema">
+                        <div class="tree-label" onclick="app.selectTreeNode(event)">
+                            <span class="tree-icon" onclick="app.toggleNode(event)">></span>
+                            <span>${schema} (${schemaCount})</span>
+                        </div>
+                        <div class="tree-children">`;
+
+                    bySchema[schema].sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
+                        const fullName = `[${item.schema}].[${item.name}]`;
+                        const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+                        html += `<div class="tree-node collapsed" data-type="${type}" data-fullname="${fullName}" data-item='${itemJson}'>
+                            <div class="tree-label" onclick="app.selectTreeNode(event)">
+                                <span class="tree-icon" onclick="app.toggleNode(event)">></span>
+                                <span>${item.name}</span>
+                                <span class="object-actions">`;
+                        
+                        if (type === 'proc') {
+                            html += `<button onclick="app.insertExecute('${fullName}', event)">Execute</button>`;
+                        } else {
+                            html += `<button onclick="app.insertSelect('${fullName}', event)">SELECT</button>`;
+                            html += `<button onclick="app.insertInsert('${fullName}', event)">INSERT</button>`;
+                            html += `<button onclick="app.insertUpdate('${fullName}', event)">UPDATE</button>`;
+                            html += `<button onclick="app.insertDelete('${fullName}', event)">DELETE</button>`;
+                        }
+                        html += `<button onclick="app.insertCreate('${fullName}', '${type}', event)">CREATE</button>
+                                <button onclick="app.insertDrop('${fullName}', '${type}', event)">DROP</button>
+                                </span>
+                            </div>
+                            <div class="tree-children">`;
+
+                        // Columns
+                        if (item.columns && item.columns.length > 0) {
+                            item.columns.forEach(col => {
+                                const nullable = col.isNullable ? 'NULL' : 'NOT NULL';
+                                html += `<div class="column-item">${col.name} <span class="type-info">${col.displayType} ${nullable}</span></div>`;
+                            });
+                        }
+
+                        // Parameters (for stored procedures)
+                        if (item.parameters && item.parameters.length > 0) {
+                            html += '<div style="margin-top: 8px; font-weight: 500;">Parameters:</div>';
+                            item.parameters.forEach(param => {
+                                html += `<div class="param-item">${param.name} <span class="type-info">${param.displayType} (${param.direction})</span></div>`;
+                            });
+                        }
+
+                        // Output columns (for stored procedures)
+                        if (item.outputColumns && item.outputColumns.length > 0) {
+                            html += '<div style="margin-top: 8px; font-weight: 500;">Output Columns:</div>';
+                            item.outputColumns.forEach(col => {
+                                html += `<div class="column-item">${col.name} <span class="type-info">${col.displayType}</span></div>`;
+                            });
+                        }
+
+                        html += `</div></div>`;
+                    });
+
+                    html += `</div></div>`;
+                });
+
+                html += `</div></div>`;
+                return html;
+            },
+
+            setNodeExpanded(node, expand) {
+                if (!node) return;
+                node.classList.toggle('collapsed', !expand);
+                node.classList.toggle('expanded', expand);
+                const icon = node.querySelector('.tree-label .tree-icon');
+                if (icon) {
+                    icon.textContent = expand ? 'v' : '>';
+                }
+            },
+
+            toggleNode(event) {
+                event.stopPropagation();
+                const node = event.target.closest('.tree-node');
+                if (!node) return;
+                const shouldExpand = node.classList.contains('collapsed');
+                this.setNodeExpanded(node, shouldExpand);
+            },
+
+            selectTreeNode(event) {
+                // Don't toggle if clicking on action buttons or chevron
+                if (event.target.tagName === 'BUTTON') return;
+
+                const node = event.target.closest('.tree-node');
+                if (!node) return;
+
+                const iconClicked = event.target.classList.contains('tree-icon');
+
+                if (node.dataset.type === 'category' || node.dataset.type === 'schema') {
+                    if (!iconClicked) {
+                        const shouldExpand = node.classList.contains('collapsed');
+                        this.setNodeExpanded(node, shouldExpand);
+                    }
+                    return;
+                }
+
+                if (iconClicked) return;
+
+                // Remove selection from all nodes
+                document.querySelectorAll('.tree-node.selected').forEach(n => n.classList.remove('selected'));
+
+                // Add selection to clicked node
+                if (node.dataset.type === 'table' || node.dataset.type === 'view' || node.dataset.type === 'proc') {
+                    node.classList.add('selected');
+                }
+            },
+
+            async insertSelect(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content and execute immediately. Continue?')) {
+                    const settings = await (await fetch('?handler=Settings')).json();
+                    const limit = settings.defaultResultLimit || 100;
+                    
+                    // Find the table in metadata to get columns
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    const table = this.metadata.tables.find(t => t.schema === schema && t.name === name) ||
+                                  this.metadata.views.find(v => v.schema === schema && v.name === name);
+                    
+                    let sql = `SELECT TOP ${limit}\n`;
+                    if (table && table.columns && table.columns.length > 0) {
+                        table.columns.forEach((col, i) => {
+                            const comma = i < table.columns.length - 1 ? ',' : '';
+                            sql += `    [${col.name}]${comma}\n`;
+                        });
+                    } else {
+                        sql += `    *\n`;
+                    }
+                    sql += `FROM ${fullName};`;
+                    
+                    this.editor.setValue(sql);
+                    // Auto-execute the query
+                    await this.executeQuery();
+                }
+            },
+
+            insertInsert(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    // Find the table in metadata
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    const table = this.metadata.tables.find(t => t.schema === schema && t.name === name) ||
+                                  this.metadata.views.find(v => v.schema === schema && v.name === name);
+                    
+                    if (!table || !table.columns) return;
+
+                    let sql = `INSERT INTO ${fullName} (\n`;
+                    table.columns.forEach((col, i) => {
+                        const comma = i < table.columns.length - 1 ? ',' : '';
+                        sql += `    [${col.name}]${comma}\n`;
+                    });
+                    sql += ')\nVALUES (\n';
+                    table.columns.forEach((col, i) => {
+                        const comma = i < table.columns.length - 1 ? ',' : '';
+                        sql += `    NULL${comma}  -- ${col.displayType}\n`;
+                    });
+                    sql += ');';
+
+                    this.editor.setValue(sql);
+                }
+            },
+
+            insertUpdate(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    // Find the table in metadata
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    const table = this.metadata.tables.find(t => t.schema === schema && t.name === name) ||
+                                  this.metadata.views.find(v => v.schema === schema && v.name === name);
+                    
+                    if (!table || !table.columns) return;
+
+                    let sql = `UPDATE ${fullName}\nSET\n`;
+                    table.columns.forEach((col, i) => {
+                        const comma = i < table.columns.length - 1 ? ',' : '';
+                        sql += `    [${col.name}] = NULL${comma}  -- ${col.displayType}\n`;
+                    });
+                    sql += 'WHERE 1 = 0;';
+
+                    this.editor.setValue(sql);
+                }
+            },
+
+            insertDelete(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    const sql = `DELETE FROM ${fullName}\nWHERE 1 = 0;`;
+                    this.editor.setValue(sql);
+                }
+            },
+
+            insertExecute(fullName, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    // Find the stored procedure in metadata
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    const proc = this.metadata.storedProcedures.find(p => p.schema === schema && p.name === name);
+                    
+                    if (!proc) return;
+
+                    let sql = `EXEC ${fullName}`;
+                    if (proc.parameters && proc.parameters.length > 0) {
+                        sql += '\n';
+                        proc.parameters.forEach((param, i) => {
+                            const comma = i < proc.parameters.length - 1 ? ',' : '';
+                            sql += `    ${param.name} = NULL${comma}\n`;
+                        });
+                    }
+                    sql += ';';
+
+                    this.editor.setValue(sql);
+                }
+            },
+
+            insertCreate(fullName, type, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    // Find the object in metadata
+                    let obj = null;
+                    const [schema, name] = fullName.replace(/[\[\]]/g, '').split('.');
+                    
+                    if (type === 'table') {
+                        obj = this.metadata.tables.find(t => t.schema === schema && t.name === name);
+                    } else if (type === 'view') {
+                        obj = this.metadata.views.find(v => v.schema === schema && v.name === name);
+                    } else if (type === 'proc') {
+                        obj = this.metadata.storedProcedures.find(p => p.schema === schema && p.name === name);
+                    }
+
+                    if (!obj) return;
+
+                    let sql = '';
+                    if (type === 'table') {
+                        sql = `CREATE TABLE ${fullName} (\n`;
+                        obj.columns.forEach((col, i) => {
+                            const comma = i < obj.columns.length - 1 ? ',' : '';
+                            const nullable = col.isNullable ? 'NULL' : 'NOT NULL';
+                            sql += `    [${col.name}] ${col.displayType} ${nullable}${comma}\n`;
+                        });
+                        sql += ');';
+                    } else if (type === 'view') {
+                        sql = `CREATE VIEW ${fullName} AS\n-- View definition not available from metadata\nSELECT `;
+                        obj.columns.forEach((col, i) => {
+                            sql += (i > 0 ? ', ' : '') + col.name;
+                        });
+                        sql += '\nFROM [YourTable];';
+                    } else if (type === 'proc') {
+                        if (obj.definition) {
+                            sql = obj.definition;
+                        } else {
+                            sql = `CREATE PROCEDURE ${fullName}\n`;
+                            if (obj.parameters.length > 0) {
+                                obj.parameters.forEach((param, i) => {
+                                    const comma = i < obj.parameters.length - 1 ? ',' : '';
+                                    sql += `    ${param.name} ${param.displayType}${comma}\n`;
+                                });
+                            }
+                            sql += 'AS\nBEGIN\n    -- Procedure body not available from metadata\n    SELECT 1;\nEND;';
+                        }
+                    }
+
+                    this.editor.setValue(sql);
+                }
+            },
+
+            insertDrop(fullName, type, event) {
+                event.stopPropagation();
+                if (!this.settings.confirmActions || confirm('This will overwrite the current editor content. Continue?')) {
+                    const objectType = type === 'table' ? 'TABLE' : type === 'view' ? 'VIEW' : 'PROCEDURE';
+                    this.editor.setValue(`DROP ${objectType} ${fullName};`);
+                }
+            },
+
+            filterTree(term) {
+                term = term.toLowerCase();
+                const shouldFilter = term.length > 0;
+                
+                // Show/hide clear button
+                const clearBtn = document.getElementById('clearFilterBtn');
+                if (clearBtn) {
+                    clearBtn.style.display = shouldFilter ? 'block' : 'none';
+                }
+                
+                const objectNodes = document.querySelectorAll('.tree-node[data-type="table"], .tree-node[data-type="view"], .tree-node[data-type="proc"]');
+                const schemaNodes = document.querySelectorAll('.tree-node[data-type="schema"]');
+                const categoryNodes = document.querySelectorAll('.tree-node[data-type="category"]');
+                
+                // Track visible counts per schema and per category
+                const schemaVisibleCounts = new Map();
+                const categoryVisibleCounts = { tables: 0, views: 0, procs: 0 };
+                
+                // Filter object nodes and count visible items per schema and category
+                objectNodes.forEach(node => {
+                    // Get only the object name (not schema or columns) from the tree-label
+                    const treeLabel = node.querySelector('.tree-label');
+                    const objectNameSpan = treeLabel.querySelector('span:nth-child(2)');
+                    const objectName = objectNameSpan ? objectNameSpan.textContent.toLowerCase() : '';
+                    
+                    const isVisible = !shouldFilter || objectName.includes(term);
+                    node.style.display = isVisible ? '' : 'none';
+                    
+                    // Collapse object nodes when filtering
+                    if (shouldFilter && isVisible) {
+                        this.setNodeExpanded(node, false);
+                    }
+                    
+                    // Find parent schema node
+                    let parent = node.parentElement;
+                    while (parent && !parent.classList.contains('tree-node')) {
+                        parent = parent.parentElement;
+                    }
+                    if (parent && parent.dataset.type === 'schema') {
+                        schemaVisibleCounts.set(parent, (schemaVisibleCounts.get(parent) || 0) + (isVisible ? 1 : 0));
+                    }
+                    
+                    // Count by category type
+                    if (isVisible) {
+                        const nodeType = node.dataset.type;
+                        if (nodeType === 'table') categoryVisibleCounts.tables++;
+                        else if (nodeType === 'view') categoryVisibleCounts.views++;
+                        else if (nodeType === 'proc') categoryVisibleCounts.procs++;
+                    }
+                });
+                
+                // Update schema nodes visibility and counts
+                schemaNodes.forEach(schemaNode => {
+                    const visibleCount = schemaVisibleCounts.get(schemaNode) || 0;
+                    const schemaLabel = schemaNode.querySelector('.tree-label span:nth-child(2)');
+                    const schemaName = schemaLabel.textContent.split(' ')[0];
+                    
+                    if (!shouldFilter) {
+                        // No filter: show all schemas with original counts
+                        schemaNode.style.display = '';
+                        const originalCount = schemaNode.querySelectorAll('.tree-node[data-type="table"], .tree-node[data-type="view"], .tree-node[data-type="proc"]').length;
+                        schemaLabel.textContent = `${schemaName} (${originalCount})`;
+                    } else {
+                        // Filter active: hide schemas with no visible items
+                        if (visibleCount > 0) {
+                            schemaNode.style.display = '';
+                            schemaLabel.textContent = `${schemaName} (${visibleCount})`;
+                            // Auto-expand schema to show filtered results
+                            this.setNodeExpanded(schemaNode, true);
+                        } else {
+                            schemaNode.style.display = 'none';
+                        }
+                    }
+                });
+                
+                // Update category counts and visibility
+                categoryNodes.forEach(catNode => {
+                    const title = catNode.querySelector('strong').textContent;
+                    const categoryLabel = catNode.querySelector('strong').parentElement;
+                    
+                    if (shouldFilter) {
+                        // Filter active: update counts to show filtered results
+                        let count = 0;
+                        if (title === 'Tables') count = categoryVisibleCounts.tables;
+                        else if (title === 'Views') count = categoryVisibleCounts.views;
+                        else if (title.includes('Stored Procedures')) count = categoryVisibleCounts.procs;
+                        
+                        categoryLabel.innerHTML = categoryLabel.innerHTML.replace(/\(\d+\)/, `(${count})`);
+                        
+                        // Auto-expand category if it has visible items
+                        if (count > 0) {
+                            this.setNodeExpanded(catNode, true);
+                        }
+                    } else {
+                        // Reset to original counts
+                        let originalCount = 0;
+                        if (title === 'Tables') {
+                            originalCount = document.querySelectorAll('.tree-node[data-type="table"]').length;
+                        } else if (title === 'Views') {
+                            originalCount = document.querySelectorAll('.tree-node[data-type="view"]').length;
+                        } else if (title.includes('Stored Procedures')) {
+                            originalCount = document.querySelectorAll('.tree-node[data-type="proc"]').length;
+                        }
+                        
+                        categoryLabel.innerHTML = categoryLabel.innerHTML.replace(/\(\d+\)/, `(${originalCount})`);
+                        
+                        // Reset to default (Tables expanded, others collapsed)
+                        if (title === 'Tables') {
+                            this.setNodeExpanded(catNode, true);
+                        } else {
+                            this.setNodeExpanded(catNode, false);
+                        }
+                    }
+                });
+                
+                // Collapse all schemas when filter is cleared
+                if (!shouldFilter) {
+                    schemaNodes.forEach(schemaNode => {
+                        this.setNodeExpanded(schemaNode, false);
+                    });
+                }
+            },
+
+            clearFilter() {
+                const filterInput = document.getElementById('filterInput');
+                if (filterInput) {
+                    filterInput.value = '';
+                    this.filterTree('');
+                }
+            },
+
+            async executeQuery() {
+                if (this.queryRunning) return;
+
+                const sql = this.editor.getValue().trim();
+                if (!sql) return;
+
+                this.queryRunning = true;
+                this.startTime = Date.now();
+                
+                document.getElementById('executeBtn').style.display = 'none';
+                document.getElementById('cancelBtn').style.display = 'inline-block';
+                document.getElementById('statusQuery').textContent = 'Running...';
+                document.getElementById('statusTime').textContent = '';
+                document.getElementById('statusRows').textContent = '';
+                document.getElementById('resultsContainer').innerHTML = '<div class="loading">Executing query...</div>';
+
+                this.timerInterval = setInterval(() => {
+                    const elapsed = Date.now() - this.startTime;
+                    document.getElementById('statusTime').textContent = `${(elapsed / 1000).toFixed(1)}s`;
+                }, 100);
+
+                try {
+                    const response = await fetch('?handler=ExecuteQuery', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sql })
+                    });
+
+                    if (!response.ok) {
+                        const contentType = response.headers.get('content-type');
+                        const errorText = await response.text();
+                        console.error('Response error details:', {
+                            status: response.status,
+                            statusText: response.statusText,
+                            contentType: contentType,
+                            body: errorText
+                        });
+                        
+                        // Try to parse as JSON for better error messages
+                        let errorMessage = errorText;
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            if (errorJson.errorMessage) errorMessage = errorJson.errorMessage;
+                            else if (errorJson.error) errorMessage = errorJson.error;
+                        } catch (e) {
+                            // Not JSON, use raw text
+                        }
+                        
+                        throw new Error(`HTTP ${response.status} ${response.statusText}\n\nContent-Type: ${contentType}\n\nResponse Body:\n${errorMessage}`);
+                    }
+
+                    const text = await response.text();
+                    if (!text) {
+                        throw new Error('Empty response from server');
+                    }
+
+                    let result;
+                    try {
+                        result = JSON.parse(text);
+                    } catch (parseError) {
+                        console.error('JSON parse error:', parseError);
+                        console.error('Response text:', text);
+                        throw new Error(`Failed to parse server response as JSON.\n\nParse Error: ${parseError.message}\n\nResponse:\n${text.substring(0, 500)}`);
+                    }
+                    
+                    this.displayResults(result);
+                } catch (error) {
+                    console.error('Execute query error:', error);
+                    this.displayError(error.message);
+                } finally {
+                    this.queryRunning = false;
+                    clearInterval(this.timerInterval);
+                    document.getElementById('executeBtn').style.display = 'inline-block';
+                    document.getElementById('cancelBtn').style.display = 'none';
+                }
+            },
+
+            async cancelQuery() {
+                document.getElementById('statusQuery').textContent = 'Cancelling...';
+                await fetch('?handler=CancelQuery', { method: 'POST' });
+            },
+
+            displayResults(result) {
+                const container = document.getElementById('resultsContainer');
+
+                if (!result.success) {
+                    container.innerHTML = `<div class="error">${result.errorMessage}</div>`;
+                    document.getElementById('statusQuery').textContent = 'Failed';
+                    document.getElementById('statusTime').textContent = `${(result.elapsedMilliseconds / 1000).toFixed(2)}s`;
+                    return;
+                }
+
+                let html = '';
+                
+                if (result.resultSets.length === 0) {
+                    html = '<div style="color: var(--text-secondary); font-size: 13px;">Query executed successfully. No results returned.</div>';
+                } else {
+                    // Display messages first if any
+                    if (result.messages && result.messages.length > 0) {
+                        html += '<div class="info-messages" style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 2px; padding: 12px; margin-bottom: 12px; font-family: \'Consolas\', monospace; font-size: 12px;">';
+                        html += '<div style="font-weight: 600; margin-bottom: 8px; color: var(--accent-blue);">Messages:</div>';
+                        result.messages.forEach(msg => {
+                            html += `<div style="margin-bottom: 4px; color: var(--text-primary);">${msg}</div>`;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    result.resultSets.forEach((rs, i) => {
+                        html += `<div class="result-set">`;
+                        if (result.resultSets.length > 1) {
+                            html += `<h3>Result Set ${i + 1} (${rs.rowCount} rows)</h3>`;
+                        }
+                        
+                        html += `<table class="result-table"><thead><tr>`;
+                        rs.columns.forEach(col => {
+                            html += `<th>${col}</th>`;
+                        });
+                        html += `</tr></thead><tbody>`;
+
+                        rs.rows.forEach(row => {
+                            html += '<tr>';
+                            rs.columns.forEach(col => {
+                                const val = row[col];
+                                html += `<td>${val === null ? '<i>NULL</i>' : val}</td>`;
+                            });
+                            html += '</tr>';
+                        });
+
+                        html += `</tbody></table></div>`;
+                    });
+                }
+
+                container.innerHTML = html;
+                
+                document.getElementById('statusQuery').textContent = 'Completed';
+                document.getElementById('statusTime').textContent = `${(result.elapsedMilliseconds / 1000).toFixed(2)}s`;
+                document.getElementById('statusRows').textContent = `${result.totalRowsReturned} rows`;
+                
+                if (result.wasTruncated) {
+                    document.getElementById('statusRows').textContent += ' (truncated)';
+                }
+            },
+
+            displayError(message) {
+                // Make the error message more readable with line breaks preserved
+                const formattedMessage = message.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+                document.getElementById('resultsContainer').innerHTML = `<div class="error" style="padding: 16px; white-space: pre-wrap; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.6;">${formattedMessage}</div>`;
+                document.getElementById('statusQuery').textContent = 'Failed';
+            },
+
+            showSettings() {
+                fetch('?handler=Settings')
+                    .then(r => r.json())
+                    .then(settings => {
+                        document.getElementById('settingServer').value = settings.server || '';
+                        document.getElementById('settingDatabase').value = settings.database || '';
+                        document.getElementById('settingUserId').value = settings.userId || '';
+                        document.getElementById('settingPassword').value = settings.password || '';
+                        document.getElementById('settingPassword').type = 'password';
+                        document.getElementById('settingTrustServerCert').checked = settings.trustServerCertificate !== false;
+                        document.getElementById('settingConfirmActions').checked = settings.confirmActions === true;
+                        document.getElementById('settingTheme').value = settings.theme || 'dark';
+                        document.getElementById('settingResultLimit').value = settings.defaultResultLimit || 100;
+                        document.getElementById('settingsModal').classList.add('show');
+                    });
+            },
+
+            hideSettings() {
+                document.getElementById('settingsModal').classList.remove('show');
+            },
+
+            handleModalClick(event) {
+                // Close modal when clicking on the backdrop (but not on the modal content)
+                if (event.target.id === 'settingsModal' || event.target.id === 'schemaModal') {
+                    this.hideSettings();
+                    this.hideSchema();
+                }
+            },
+
+            togglePasswordVisibility() {
+                const passwordInput = document.getElementById('settingPassword');
+                passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
+            },
+
+            async saveSettings() {
+                const settings = {
+                    server: document.getElementById('settingServer').value,
+                    database: document.getElementById('settingDatabase').value,
+                    userId: document.getElementById('settingUserId').value,
+                    password: document.getElementById('settingPassword').value,
+                    trustServerCertificate: document.getElementById('settingTrustServerCert').checked,
+                    confirmActions: document.getElementById('settingConfirmActions').checked,
+                    theme: document.getElementById('settingTheme').value,
+                    defaultResultLimit: parseInt(document.getElementById('settingResultLimit').value)
+                };
+
+                await fetch('?handler=Settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+
+                this.hideSettings();
+                location.reload();
+            },
+
+            async deleteSettings() {
+                if (!this.settings.confirmActions || confirm('Delete the settings file and refresh the page?')) {
+                    await fetch('?handler=Settings', { method: 'DELETE' });
+                    location.reload();
+                }
+            },
+
+            async testConnection() {
+                const settings = {
+                    server: document.getElementById('settingServer').value,
+                    database: document.getElementById('settingDatabase').value,
+                    userId: document.getElementById('settingUserId').value,
+                    password: document.getElementById('settingPassword').value,
+                    trustServerCertificate: document.getElementById('settingTrustServerCert').checked
+                };
+
+                try {
+                    console.log('Test connection request:', settings);
+                    
+                    const response = await fetch('?handler=TestConnection', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(settings)
+                    });
+
+                    console.log('Test connection response:', {
+                        status: response.status,
+                        statusText: response.statusText,
+                        contentType: response.headers.get('content-type')
+                    });
+
+                    const responseText = await response.text();
+                    console.log('Test connection response body:', responseText);
+
+                    if (!response.ok) {
+                        let errorDetails = `HTTP ${response.status} ${response.statusText}\n\n`;
+                        errorDetails += `Content-Type: ${response.headers.get('content-type') || 'null'}\n\n`;
+                        errorDetails += `Response Body:\n${responseText || '(empty)'}`;
+                        throw new Error(errorDetails);
+                    }
+
+                    const result = JSON.parse(responseText);
+                    
+                    if (result.success) {
+                        alert(`✅ Connection successful!\n\nServer: ${result.serverVersion}\nDatabase: ${result.databaseName}\nUser: ${result.userName}`);
+                    } else {
+                        alert(`❌ Connection failed:\n\n${result.errorMessage}`);
+                    }
+                } catch (error) {
+                    console.error('Test connection error:', error);
+                    alert(`❌ Connection test failed:\n\n${error.message}`);
+                }
+            },
+
+            async refreshMetadata() {
+                await this.loadMetadata();
+            },
+
+            async showSchema() {
+                console.log('showSchema called');
+                
+                // Load Mermaid library
+                try {
+                    await this.loadMermaid();
+                    console.log('Mermaid loaded successfully');
+                } catch (error) {
+                    console.error('Failed to load Mermaid:', error);
+                    const message = error instanceof Error ? error.message : error;
+                    alert('Failed to load diagram library: ' + message);
+                    return;
+                }
+
+                // Show modal immediately
+                const modal = document.getElementById('schemaModal');
+                const container = document.getElementById('schemaContainer');
+                
+                modal.classList.add('show');
+                container.innerHTML = '<div class="loading">Generating diagram...</div>';
+
+                // Check if we have tables
+                if (!this.metadata || !this.metadata.tables || this.metadata.tables.length === 0) {
+                    container.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No tables found in the database.</div>';
+                    return;
+                }
+
+                console.log('Generating ERD for', this.metadata.tables.length, 'tables');
+
+                // Configure Mermaid theme so subsequent renders stay in sync with the current UI settings.
+                try {
+                    mermaid.initialize(this.getMermaidConfig());
+                } catch (error) {
+                    console.error('Mermaid initialization error:', error);
+                }
+
+                // Build the ERD diagram
+                let erd = 'erDiagram\n';
+                const processedTables = new Set();
+                
+                // Add tables with relationships first
+                if (this.metadata.foreignKeys && this.metadata.foreignKeys.length > 0) {
+                    console.log('Processing', this.metadata.foreignKeys.length, 'foreign keys');
+                    
+                    this.metadata.foreignKeys.forEach(fk => {
+                        const parentKey = `${fk.parentSchema}_${fk.parentTable}`;
+                        const refKey = `${fk.referencedSchema}_${fk.referencedTable}`;
+                        
+                        // Add parent table if not already added
+                        if (!processedTables.has(parentKey)) {
+                            const table = this.metadata.tables.find(t => 
+                                t.schema === fk.parentSchema && t.name === fk.parentTable
+                            );
+                            if (table) {
+                                erd += `    ${parentKey} {\n`;
+                                table.columns.slice(0, 10).forEach(col => {
+                                    const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
+                                    const typeInfo = col.dataType || 'string';
+                                    erd += `        ${typeInfo} ${safeColName}\n`;
+                                });
+                                if (table.columns.length > 10) {
+                                    erd += `        string more_columns "..."\n`;
+                                }
+                                erd += `    }\n`;
+                                processedTables.add(parentKey);
+                            }
+                        }
+                        
+                        // Add referenced table if not already added
+                        if (!processedTables.has(refKey)) {
+                            const table = this.metadata.tables.find(t => 
+                                t.schema === fk.referencedSchema && t.name === fk.referencedTable
+                            );
+                            if (table) {
+                                erd += `    ${refKey} {\n`;
+                                table.columns.slice(0, 10).forEach(col => {
+                                    const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
+                                    const typeInfo = col.dataType || 'string';
+                                    erd += `        ${typeInfo} ${safeColName}\n`;
+                                });
+                                if (table.columns.length > 10) {
+                                    erd += `        string more_columns "..."\n`;
+                                }
+                                erd += `    }\n`;
+                                processedTables.add(refKey);
+                            }
+                        }
+                        
+                        // Add relationship
+                        erd += `    ${parentKey} ||--o{ ${refKey} : "${fk.name}"\n`;
+                    });
+                }
+                
+                // Add remaining standalone tables
+                this.metadata.tables.forEach(table => {
+                    const tableKey = `${table.schema}_${table.name}`;
+                    if (!processedTables.has(tableKey)) {
+                        erd += `    ${tableKey} {\n`;
+                        table.columns.slice(0, 10).forEach(col => {
+                            const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
+                            const typeInfo = col.dataType || 'string';
+                            const nullInfo = col.isNullable ? '' : ' "NOT NULL"';
+                            erd += `        ${typeInfo} ${safeColName}${nullInfo}\n`;
+                        });
+                        if (table.columns.length > 10) {
+                            erd += `        string more_columns "..."\n`;
+                        }
+                        erd += `    }\n`;
+                        processedTables.add(tableKey);
+                    }
+                });
+
+                console.log('Generated ERD:\n', erd);
+
+                // Render the diagram
+                try {
+                    // Give the DOM a moment to update
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    const { svg, bindFunctions } = await mermaid.render('schemaDiagram_' + Date.now(), erd);
+                    container.innerHTML = svg;
+                    bindFunctions?.(container);
+                    console.log('Diagram rendered successfully');
+
+                    const svgElement = container.querySelector('svg');
+                    if (svgElement) {
+                        // Set a reasonable default scale (50% of natural size)
+                        const originalWidth = parseFloat(svgElement.getAttribute('width') || '800');
+                        this.baseSchemaWidth = originalWidth;
+                        const scaledWidth = originalWidth * this.currentSchemaScale;
+                        
+                        svgElement.style.width = scaledWidth + 'px';
+                        svgElement.style.height = 'auto';
+                        svgElement.style.maxWidth = 'none';
+                        
+                        console.log(`Scaled diagram from ${originalWidth}px to ${scaledWidth}px`);
+                    }
+                } catch (renderError) {
+                    console.error('Mermaid render error:', renderError);
+                    container.innerHTML = `
+                        <div class="error" style="padding: 20px;">
+                            <strong>Could not render schema diagram</strong><br><br>
+                            <pre style="overflow: auto; max-height: 300px;">${renderError.message || renderError}</pre>
+                            <br>
+                            <details style="margin-top: 10px;">
+                                <summary style="cursor: pointer;">View ERD Definition</summary>
+                                <pre style="overflow: auto; max-height: 300px; margin-top: 10px;">${erd}</pre>
+                            </details>
+                        </div>
+                    `;
+                }
+            },
+
+            zoomSchema(factor) {
+                const container = document.getElementById('schemaContainer');
+                const svgElement = container.querySelector('svg');
+                
+                if (!svgElement) return;
+                
+                if (factor === 'reset') {
+                    this.currentSchemaScale = 1.8;
+                } else {
+                    this.currentSchemaScale *= factor;
+                    // Limit zoom range
+                    this.currentSchemaScale = Math.max(0.1, Math.min(3, this.currentSchemaScale));
+                }
+                
+                const scaledWidth = this.baseSchemaWidth * this.currentSchemaScale;
+                svgElement.style.width = scaledWidth + 'px';
+                
+                console.log(`Zoom adjusted to ${(this.currentSchemaScale * 100).toFixed(0)}%`);
+            },
+
+            hideSchema() {
+                document.getElementById('schemaModal').classList.remove('show');
+            },
+
+            setupKeyboardShortcuts() {
+                document.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 'e') {
+                        e.preventDefault();
+                        this.executeQuery();
+                    } else if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        this.saveSettings();
+                    } else if (e.ctrlKey && e.key === 'f') {
+                        e.preventDefault();
+                        document.getElementById('filterInput').focus();
+                    } else if (e.ctrlKey && e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        this.editor.setValue(this.editor.getValue() + '\n--\n');
+                    } else if (e.ctrlKey && e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        this.editor.setValue(this.editor.getValue() + '\n/*\n');
+                    }
+                });
+            },
+
+            setupResizers() {
+                const verticalResizer = document.getElementById('verticalResizer');
+                const horizontalResizer = document.getElementById('horizontalResizer');
+                const leftPane = document.querySelector('.left-pane');
+                const rightPane = document.querySelector('.right-pane');
+                const editorContainer = document.querySelector('.editor-container');
+                const resultsContainer = document.querySelector('.results-container');
+                const clearPointerStyles = () => {
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                };
+
+                if (!verticalResizer || !horizontalResizer || !leftPane || !rightPane || !editorContainer || !resultsContainer) {
+                    return;
+                }
+
+                const getMinHeight = (element, fallback) => {
+                    const value = parseInt(window.getComputedStyle(element).minHeight, 10);
+                    return Number.isNaN(value) ? fallback : value;
+                };
+
+                let verticalState = null;
+                let horizontalState = null;
+
+                const onVerticalPointerDown = (event) => {
+                    event.preventDefault();
+                    verticalResizer.setPointerCapture(event.pointerId);
+                    verticalState = {
+                        pointerId: event.pointerId,
+                        startX: event.clientX,
+                        startWidth: leftPane.offsetWidth,
+                    };
+                    document.body.style.cursor = 'col-resize';
+                    document.body.style.userSelect = 'none';
+                };
+
+                const onVerticalPointerMove = (event) => {
+                    if (!verticalState || event.pointerId !== verticalState.pointerId) {
+                        return;
+                    }
+
+                    const deltaX = event.clientX - verticalState.startX;
+                    const newWidth = Math.min(
+                        Math.max(verticalState.startWidth + deltaX, 200),
+                        window.innerWidth - 400
+                    );
+                    leftPane.style.width = `${newWidth}px`;
+                    rightPane.style.flex = `1 1 calc(100% - ${newWidth}px)`;
+                };
+
+                const onVerticalPointerUp = (event) => {
+                    if (!verticalState || event.pointerId !== verticalState.pointerId) {
+                        return;
+                    }
+
+                    verticalResizer.releasePointerCapture(verticalState.pointerId);
+                    verticalState = null;
+                    clearPointerStyles();
+                };
+
+                verticalResizer.addEventListener('pointerdown', onVerticalPointerDown);
+                verticalResizer.addEventListener('pointermove', onVerticalPointerMove);
+                verticalResizer.addEventListener('pointerup', onVerticalPointerUp);
+                verticalResizer.addEventListener('pointercancel', onVerticalPointerUp);
+
+                const applyHorizontalFlex = (editorHeight, resultsHeight) => {
+                    if (!horizontalState) return;
+                    const total = editorHeight + resultsHeight;
+                    if (total <= 0) return;
+
+                    const editorRatio = editorHeight / total;
+                    const resultsRatio = resultsHeight / total;
+                    const scale = 1000;
+                    const editorGrow = Math.max(1, Math.round(editorRatio * scale));
+                    const resultsGrow = Math.max(1, Math.round(resultsRatio * scale));
+
+                    editorContainer.style.flex = `${editorGrow} 1 0%`;
+                    resultsContainer.style.flex = `${resultsGrow} 1 0%`;
+
+                    if (this.editor) {
+                        this.editor.layout();
+                    }
+
+                    horizontalState.currentEditor = editorHeight;
+                    horizontalState.currentResults = resultsHeight;
+                };
+
+                const onHorizontalPointerDown = (event) => {
+                    event.preventDefault();
+                    const totalHeight = editorContainer.offsetHeight + resultsContainer.offsetHeight;
+                    horizontalState = {
+                        pointerId: event.pointerId,
+                        startY: event.clientY,
+                        totalHeight,
+                        editorInitial: editorContainer.offsetHeight,
+                        editorMin: getMinHeight(editorContainer, 200),
+                        resultsMin: getMinHeight(resultsContainer, 150),
+                        currentEditor: null,
+                        currentResults: null,
+                    };
+                    horizontalResizer.setPointerCapture(event.pointerId);
+                    document.body.style.cursor = 'row-resize';
+                    document.body.style.userSelect = 'none';
+                };
+
+                const onHorizontalPointerMove = (event) => {
+                    if (!horizontalState || event.pointerId !== horizontalState.pointerId) {
+                        return;
+                    }
+
+                    const deltaY = event.clientY - horizontalState.startY;
+                    const availableHeight = horizontalState.totalHeight;
+                    const editorMin = horizontalState.editorMin;
+                    const resultsMin = horizontalState.resultsMin;
+
+                    let editorHeight = horizontalState.editorInitial + deltaY;
+                    editorHeight = Math.max(editorMin, Math.min(editorHeight, availableHeight - resultsMin));
+                    const resultsHeight = availableHeight - editorHeight;
+
+                    applyHorizontalFlex(editorHeight, resultsHeight);
+                };
+
+                const onHorizontalPointerUp = (event) => {
+                    if (!horizontalState || event.pointerId !== horizontalState.pointerId) {
+                        return;
+                    }
+
+                    horizontalResizer.releasePointerCapture(horizontalState.pointerId);
+                    clearPointerStyles();
+
+                    if (horizontalState.currentEditor != null && horizontalState.currentResults != null) {
+                        applyHorizontalFlex(horizontalState.currentEditor, horizontalState.currentResults);
+                    }
+
+                    horizontalState = null;
+                };
+
+                horizontalResizer.addEventListener('pointerdown', onHorizontalPointerDown);
+                horizontalResizer.addEventListener('pointermove', onHorizontalPointerMove);
+                horizontalResizer.addEventListener('pointerup', onHorizontalPointerUp);
+                horizontalResizer.addEventListener('pointercancel', onHorizontalPointerUp);
+            }
+    };
+
+    window.app = app;
+
+    document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>
+

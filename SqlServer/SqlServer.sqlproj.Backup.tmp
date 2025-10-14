@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build">
+  <Sdk Name="Microsoft.Build.Sql" Version="0.2.3-preview" />
+  <PropertyGroup>
+    <Name>SqlServer</Name>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.SqlAzureV12DatabaseSchemaProvider</DSP>
+    <ModelCollation>1033, CI</ModelCollation>
+    <RootNamespace>SqlServer</RootNamespace>
+    <AssemblyName>SqlServer</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="StoredProcedures\GetSeriesActors.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Tables\Series.sql" />
+    <None Include="Tables\Actor.sql" />
+    <None Include="Tables\Species.sql" />
+    <None Include="Tables\Character.sql" />
+    <None Include="Tables\Series_Character.sql" />
+    <None Include="Tables\Character_Species.sql" />
+    <None Include="Views\CharacterProfile.sql" />
+    <None Include="StoredProcedures\GetCharacterProfile.sql" />
+    <PostDeploy Include="PostDeployment.sql" />
+  </ItemGroup>
+</Project>

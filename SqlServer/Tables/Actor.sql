@@ -1,0 +1,6 @@
+CREATE TABLE dbo.Actor
+(
+    Id INT NOT NULL PRIMARY KEY,
+    Name NVARCHAR(255) NOT NULL,
+    BirthYear INT NOT NULL
+);

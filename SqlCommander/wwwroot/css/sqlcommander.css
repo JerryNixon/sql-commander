@@ -1,0 +1,748 @@
+/* ============================================================================
+   SQL Commander - Main Stylesheet
+   A standards-based CSS file for the SQL Commander application
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   CSS Custom Properties (Variables) - Theme System
+   ---------------------------------------------------------------------------- */
+
+:root {
+    /* Dark Theme Colors */
+    --bg-primary: #1e1e1e;
+    --bg-secondary: #252526;
+    --bg-tertiary: #2d2d30;
+    --bg-hover: #2a2d2e;
+    --bg-selected: #094771;
+    --border-color: #3e3e42;
+    --text-primary: #d4d4d4;
+    --text-secondary: #858585;
+    --input-bg: #3c3c3c;
+    --button-bg: #0e639c;
+    --button-hover: #1177bb;
+    --button-disabled: #464647;
+    --button-secondary: #464647;
+    --button-secondary-hover: #5a5a5c;
+    --button-danger: #c72e0f;
+    --button-danger-hover: #e03e12;
+    --accent-blue: #569cd6;
+    --accent-cyan: #9cdcfe;
+    --accent-red: #f48771;
+    --error-bg: #3c1f1e;
+    --error-border: #5a1d1d;
+}
+
+body.light-theme {
+    /* Light Theme Colors */
+    --bg-primary: #ffffff;
+    --bg-secondary: #f3f3f3;
+    --bg-tertiary: #e8e8e8;
+    --bg-hover: #e5e5e5;
+    --bg-selected: #cce8ff;
+    --border-color: #d0d0d0;
+    --text-primary: #1e1e1e;
+    --text-secondary: #616161;
+    --input-bg: #ffffff;
+    --button-bg: #0078d4;
+    --button-hover: #106ebe;
+    --button-disabled: #c8c8c8;
+    --button-secondary: #e1e1e1;
+    --button-secondary-hover: #d0d0d0;
+    --button-danger: #d13438;
+    --button-danger-hover: #a52a2e;
+    --accent-blue: #0078d4;
+    --accent-cyan: #0098c7;
+    --accent-red: #d13438;
+    --error-bg: #fde7e9;
+    --error-border: #e81123;
+}
+
+/* ----------------------------------------------------------------------------
+   Base Styles & Reset
+   ---------------------------------------------------------------------------- */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ----------------------------------------------------------------------------
+   Layout Structure
+   ---------------------------------------------------------------------------- */
+
+.container {
+    display: flex;
+    height: 100vh;
+    flex-direction: column;
+}
+
+.main-content {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ----------------------------------------------------------------------------
+   Left Pane - Database Explorer
+   ---------------------------------------------------------------------------- */
+
+.left-pane {
+    width: 300px;
+    min-width: 200px;
+    max-width: 600px;
+    background: var(--bg-secondary);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-color);
+}
+
+.pane-header {
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.filter-box {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.filter-box input {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 6px 8px;
+    font-size: 13px;
+    border-radius: 2px;
+}
+
+.filter-box input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+#clearFilterBtn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+#clearFilterBtn:hover {
+    color: var(--text-primary);
+}
+
+/* ----------------------------------------------------------------------------
+   Tree View - Database Objects
+   ---------------------------------------------------------------------------- */
+
+.tree-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px;
+}
+
+.tree-node {
+    padding: 4px 8px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+}
+
+.tree-node:hover {
+    background: var(--bg-hover);
+}
+
+.tree-node.selected > .tree-label {
+    background: var(--bg-selected);
+}
+
+.tree-node.collapsed > .tree-children {
+    display: none;
+}
+
+.tree-node.expanded > .tree-children {
+    display: block;
+}
+
+.tree-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tree-icon {
+    width: 16px;
+    min-width: 16px;
+    text-align: center;
+    font-size: 10px;
+    font-family: monospace;
+    display: inline-block;
+}
+
+.tree-children {
+    margin-left: 10px;
+}
+
+.column-item,
+.param-item {
+    padding: 4px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.column-item .type-info,
+.param-item .type-info {
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+/* ----------------------------------------------------------------------------
+   Object Action Buttons
+   ---------------------------------------------------------------------------- */
+
+.object-actions {
+    display: inline-flex;
+    gap: 4px;
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.tree-node:hover > .tree-label > .object-actions,
+.tree-node.selected > .tree-label > .object-actions {
+    opacity: 1;
+}
+
+.object-actions button {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 2px 6px;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+.object-actions button:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-blue);
+}
+
+.schema-download {
+    padding: 8px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+}
+
+.schema-download button {
+    flex: 1;
+    background: var(--button-bg);
+    border: none;
+    color: white;
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+.schema-download button:hover {
+    background: var(--button-hover);
+}
+
+/* ----------------------------------------------------------------------------
+   Resizers - Splitter Controls
+   ---------------------------------------------------------------------------- */
+
+.vertical-resizer {
+    width: 4px;
+    background: var(--border-color);
+    cursor: col-resize;
+    flex-shrink: 0;
+    touch-action: none;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.vertical-resizer:hover {
+    background: var(--accent-blue);
+}
+
+.horizontal-resizer {
+    height: 4px;
+    background: var(--border-color);
+    cursor: row-resize;
+    flex-shrink: 0;
+    touch-action: none;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.horizontal-resizer:hover {
+    background: var(--accent-blue);
+}
+
+/* ----------------------------------------------------------------------------
+   Right Pane - Editor & Results
+   ---------------------------------------------------------------------------- */
+
+.right-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.editor-container {
+    flex: 1 1 33%;
+    display: flex;
+    flex-direction: column;
+    min-height: 200px;
+    overflow: hidden;
+}
+
+.editor-toolbar {
+    padding: 8px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.toolbar-left {
+    display: flex;
+    gap: 8px;
+}
+
+.toolbar-right {
+    display: flex;
+    gap: 8px;
+}
+
+.editor-toolbar button {
+    background: var(--button-bg);
+    border: none;
+    color: white;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.editor-toolbar button.execute {
+    background: #0e7d0e;
+}
+
+.editor-toolbar button.execute:hover {
+    background: #0f9d0f;
+}
+
+.editor-toolbar button:hover {
+    background: var(--button-hover);
+}
+
+.editor-toolbar button:disabled {
+    background: var(--button-disabled);
+    cursor: not-allowed;
+}
+
+.editor {
+    flex: 1;
+    min-height: 200px;
+    overflow: hidden; /* Important for Monaco Editor */
+}
+
+#sqlEditor {
+    width: 100%;
+    height: 100%;
+}
+
+/* ----------------------------------------------------------------------------
+   Results Display
+   ---------------------------------------------------------------------------- */
+
+.results-container {
+    flex: 2 1 67%;
+    min-height: 150px;
+    overflow: auto;
+    padding: 12px;
+    background: var(--bg-primary);
+    border-top: 3px solid var(--accent-blue);
+}
+
+.result-set {
+    margin-bottom: 24px;
+}
+
+.result-set h3 {
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: var(--accent-blue);
+}
+
+.result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.result-table th {
+    background: var(--bg-tertiary);
+    padding: 8px;
+    text-align: left;
+    border: 1px solid var(--border-color);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.result-table td {
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.result-table tr:hover {
+    background: var(--bg-hover);
+}
+
+/* ----------------------------------------------------------------------------
+   Status Bar
+   ---------------------------------------------------------------------------- */
+
+.status-bar {
+    background: var(--button-bg);
+    color: white;
+    padding: 6px 12px;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-left,
+.status-right {
+    display: flex;
+    gap: 16px;
+}
+
+.status-label {
+    color: #cccccc;
+    font-weight: 500;
+}
+
+.status-value {
+    color: #ffffff;
+}
+
+#statusConnection {
+    font-weight: 600;
+}
+
+/* Connection status color indicators */
+#statusConnection::before {
+    content: '● ';
+    margin-right: 4px;
+}
+
+/* Default/Disconnected state - yellow/amber */
+body #statusConnection {
+    color: #ffa500;
+}
+
+/* Connected state - green */
+body #statusConnection.connected {
+    color: #4ec9b0;
+}
+
+/* Failed state - red */
+body #statusConnection.failed {
+    color: #f48771;
+}
+
+/* ----------------------------------------------------------------------------
+   Modal Dialogs
+   ---------------------------------------------------------------------------- */
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    padding: 24px;
+    border-radius: 4px;
+    max-width: 500px;
+    width: 90%;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content.schema-modal {
+    max-width: 95vw;
+    width: 95vw;
+    height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    font-size: 16px;
+    margin-bottom: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.modal-header button {
+    background: var(--button-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.modal-header button:hover {
+    background: var(--button-secondary-hover);
+}
+
+/* ----------------------------------------------------------------------------
+   Schema Diagram Container
+   ---------------------------------------------------------------------------- */
+
+#schemaContainer {
+    flex: 1;
+    overflow: auto;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+}
+
+#schemaContainer svg {
+    max-width: none !important;
+    height: auto !important;
+}
+
+#schemaContainer .loading {
+    font-size: 16px;
+    padding: 40px;
+}
+
+/* ----------------------------------------------------------------------------
+   Form Controls
+   ---------------------------------------------------------------------------- */
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.form-group input {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px;
+    font-size: 13px;
+    border-radius: 2px;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.form-group select {
+    background: var(--input-bg);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper input {
+    padding-right: 35px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 8px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 14px;
+}
+
+.password-toggle:hover {
+    color: var(--text-primary);
+}
+
+/* ----------------------------------------------------------------------------
+   Modal Actions & Buttons
+   ---------------------------------------------------------------------------- */
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: space-between;
+    margin-top: 24px;
+    align-items: center;
+}
+
+.modal-actions-right {
+    display: flex;
+    gap: 8px;
+}
+
+.modal-actions button {
+    background: var(--button-bg);
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.modal-actions button:hover {
+    background: var(--button-hover);
+}
+
+.modal-actions button.secondary {
+    background: var(--button-secondary);
+}
+
+.modal-actions button.secondary:hover {
+    background: var(--button-secondary-hover);
+}
+
+.modal-actions button.danger {
+    background: var(--button-danger);
+}
+
+.modal-actions button.danger:hover {
+    background: var(--button-danger-hover);
+}
+
+.delete-settings-link {
+    color: var(--accent-red);
+    text-decoration: none;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+.delete-settings-link:hover {
+    text-decoration: underline;
+}
+
+/* ----------------------------------------------------------------------------
+   Loading & Error States
+   ---------------------------------------------------------------------------- */
+
+.loading {
+    color: var(--accent-blue);
+    font-style: italic;
+    padding: 12px;
+    text-align: center;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.error {
+    color: var(--accent-red);
+    padding: 12px;
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    border-radius: 2px;
+    margin: 12px;
+}
+
+/* ----------------------------------------------------------------------------
+   Info Messages
+   ---------------------------------------------------------------------------- */
+
+.info-messages {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 2px;
+    padding: 12px;
+    margin-bottom: 12px;
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+}
+
+.info-messages > div:first-child {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--accent-blue);
+}
+
+.info-messages > div:not(:first-child) {
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
