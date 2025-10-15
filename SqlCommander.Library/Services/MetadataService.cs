@@ -51,7 +51,25 @@ public class MetadataService : IMetadataService
     async Task<List<ForeignKeyMetadata>> GetForeignKeysAsync(SqlConnection connection)
     {
         var fks = new List<ForeignKeyMetadata>();
-        const string sql = @"\n            SELECT \n                fk.name AS FkName,\n                ps.name AS ParentSchema,\n                pt.name AS ParentTable,\n                pc.name AS ParentColumn,\n                rs.name AS ReferencedSchema,\n                rt.name AS ReferencedTable,\n                rc.name AS ReferencedColumn\n            FROM sys.foreign_keys fk\n            INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id\n            INNER JOIN sys.tables pt ON fkc.parent_object_id = pt.object_id\n            INNER JOIN sys.schemas ps ON pt.schema_id = ps.schema_id\n            INNER JOIN sys.columns pc ON fkc.parent_object_id = pc.object_id AND fkc.parent_column_id = pc.column_id\n            INNER JOIN sys.tables rt ON fkc.referenced_object_id = rt.object_id\n            INNER JOIN sys.schemas rs ON rt.schema_id = rs.schema_id\n            INNER JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id\n            WHERE pt.is_ms_shipped = 0 AND rt.is_ms_shipped = 0\n            ORDER BY ps.name, pt.name, fk.name";
+        const string sql = @"
+            SELECT 
+                fk.name AS FkName,
+                ps.name AS ParentSchema,
+                pt.name AS ParentTable,
+                pc.name AS ParentColumn,
+                rs.name AS ReferencedSchema,
+                rt.name AS ReferencedTable,
+                rc.name AS ReferencedColumn
+            FROM sys.foreign_keys fk
+            INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
+            INNER JOIN sys.tables pt ON fkc.parent_object_id = pt.object_id
+            INNER JOIN sys.schemas ps ON pt.schema_id = ps.schema_id
+            INNER JOIN sys.columns pc ON fkc.parent_object_id = pc.object_id AND fkc.parent_column_id = pc.column_id
+            INNER JOIN sys.tables rt ON fkc.referenced_object_id = rt.object_id
+            INNER JOIN sys.schemas rs ON rt.schema_id = rs.schema_id
+            INNER JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id
+            WHERE pt.is_ms_shipped = 0 AND rt.is_ms_shipped = 0
+            ORDER BY ps.name, pt.name, fk.name";
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -64,7 +82,22 @@ public class MetadataService : IMetadataService
     async Task<List<TableMetadata>> GetTablesAsync(SqlConnection connection)
     {
         var tables = new List<TableMetadata>();
-        const string sql = @"\n            SELECT \n                s.name AS SchemaName,\n                t.name AS TableName,\n                c.name AS ColumnName,\n                ty.name AS DataType,\n                c.is_nullable AS IsNullable,\n                c.max_length AS MaxLength,\n                c.precision AS Precision,\n                c.scale AS Scale\n            FROM sys.tables t\n            INNER JOIN sys.schemas s ON t.schema_id = s.schema_id\n            INNER JOIN sys.columns c ON t.object_id = c.object_id\n            INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id\n            WHERE t.is_ms_shipped = 0\n            ORDER BY s.name, t.name, c.column_id";
+        const string sql = @"
+            SELECT 
+                s.name AS SchemaName,
+                t.name AS TableName,
+                c.name AS ColumnName,
+                ty.name AS DataType,
+                c.is_nullable AS IsNullable,
+                c.max_length AS MaxLength,
+                c.precision AS Precision,
+                c.scale AS Scale
+            FROM sys.tables t
+            INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
+            INNER JOIN sys.columns c ON t.object_id = c.object_id
+            INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
+            WHERE t.is_ms_shipped = 0
+            ORDER BY s.name, t.name, c.column_id";
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync();
         string? currentSchema = null;
@@ -90,7 +123,22 @@ public class MetadataService : IMetadataService
     async Task<List<ViewMetadata>> GetViewsAsync(SqlConnection connection)
     {
         var views = new List<ViewMetadata>();
-        const string sql = @"\n            SELECT \n                s.name AS SchemaName,\n                v.name AS ViewName,\n                c.name AS ColumnName,\n                ty.name AS DataType,\n                c.is_nullable AS IsNullable,\n                c.max_length AS MaxLength,\n                c.precision AS Precision,\n                c.scale AS Scale\n            FROM sys.views v\n            INNER JOIN sys.schemas s ON v.schema_id = s.schema_id\n            INNER JOIN sys.columns c ON v.object_id = c.object_id\n            INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id\n            WHERE v.is_ms_shipped = 0\n            ORDER BY s.name, v.name, c.column_id";
+        const string sql = @"
+            SELECT 
+                s.name AS SchemaName,
+                v.name AS ViewName,
+                c.name AS ColumnName,
+                ty.name AS DataType,
+                c.is_nullable AS IsNullable,
+                c.max_length AS MaxLength,
+                c.precision AS Precision,
+                c.scale AS Scale
+            FROM sys.views v
+            INNER JOIN sys.schemas s ON v.schema_id = s.schema_id
+            INNER JOIN sys.columns c ON v.object_id = c.object_id
+            INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
+            WHERE v.is_ms_shipped = 0
+            ORDER BY s.name, v.name, c.column_id";
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync();
         string? currentSchema = null;
@@ -116,7 +164,23 @@ public class MetadataService : IMetadataService
     async Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(SqlConnection connection)
     {
         var procedures = new List<StoredProcedureMetadata>();
-        const string sql = @"\n            SELECT \n                s.name AS SchemaName,\n                p.name AS ProcedureName,\n                pm.name AS ParameterName,\n                ty.name AS DataType,\n                CASE WHEN pm.is_output = 1 THEN 'Output' ELSE 'Input' END AS Direction,\n                pm.max_length AS MaxLength,\n                pm.precision AS Precision,\n                pm.scale AS Scale,\n                OBJECT_DEFINITION(p.object_id) AS Definition\n            FROM sys.procedures p\n            INNER JOIN sys.schemas s ON p.schema_id = s.schema_id\n            LEFT JOIN sys.parameters pm ON p.object_id = pm.object_id\n            LEFT JOIN sys.types ty ON pm.user_type_id = ty.user_type_id\n            WHERE p.is_ms_shipped = 0\n            ORDER BY s.name, p.name, pm.parameter_id";
+        const string sql = @"
+            SELECT 
+                s.name AS SchemaName,
+                p.name AS ProcedureName,
+                pm.name AS ParameterName,
+                ty.name AS DataType,
+                CASE WHEN pm.is_output = 1 THEN 'Output' ELSE 'Input' END AS Direction,
+                pm.max_length AS MaxLength,
+                pm.precision AS Precision,
+                pm.scale AS Scale,
+                OBJECT_DEFINITION(p.object_id) AS Definition
+            FROM sys.procedures p
+            INNER JOIN sys.schemas s ON p.schema_id = s.schema_id
+            LEFT JOIN sys.parameters pm ON p.object_id = pm.object_id
+            LEFT JOIN sys.types ty ON pm.user_type_id = ty.user_type_id
+            WHERE p.is_ms_shipped = 0
+            ORDER BY s.name, p.name, pm.parameter_id";
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync();
         string? currentSchema = null;

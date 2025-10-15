@@ -560,11 +560,13 @@ body #statusConnection.failed {
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
+    position: relative;
 }
 
 #schemaContainer svg {
     max-width: none !important;
     height: auto !important;
+    cursor: inherit;
 }
 
 #schemaContainer .loading {

@@ -78,7 +78,7 @@ This solution uses **.NET Aspire** for local development:
 ```
 sql-commander/
 ├── AppHost/                    # .NET Aspire orchestration
-├── SqlCommander/               # Main web application
+├── SqlCommander.Web/           # Main web application
 ├── SqlCommander.Library/       # Business logic and services
 ├── SqlCommander.Library.Tests/ # Unit tests (120 tests)
 └── SqlServer/                  # Database project

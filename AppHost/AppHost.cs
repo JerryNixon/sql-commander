@@ -11,7 +11,7 @@ var sqlproj = builder
     .WithReference(sql);
 
 var sqlcmdr = builder
-    .AddProject<Projects.SqlCommander>("sqlcmdr")
+    .AddProject<Projects.SqlCommander_Web>("sqlcmdr")
     .WithParentRelationship(sql)
     .WaitForCompletion(sqlproj)
     .WithReference(sql);

@@ -136,13 +136,25 @@
                     <span>Database Schema</span>
                     <div style="display: flex; gap: 8px; align-items: center;">
                         <span style="font-size: 12px; color: var(--text-secondary);">Zoom:</span>
-                        <button onclick="app.zoomSchema(0.8)" style="padding: 4px 8px; font-size: 12px;">−</button>
-                        <button onclick="app.zoomSchema(1.25)" style="padding: 4px 8px; font-size: 12px;">+</button>
-                        <button onclick="app.zoomSchema('reset')" style="padding: 4px 8px; font-size: 12px;">Reset</button>
+                        <button onclick="app.zoomSchema(0.75)" style="padding: 4px 12px; font-size: 14px;" title="Zoom Out (Ctrl + Mouse Wheel Down)">−</button>
+                        <button onclick="app.zoomSchema(1.5)" style="padding: 4px 12px; font-size: 14px;" title="Zoom In (Ctrl + Mouse Wheel Up)">+</button>
+                        <button onclick="app.zoomSchema('reset')" style="padding: 4px 12px; font-size: 12px;" title="Reset Zoom">Reset</button>
+                        <button onclick="app.zoomSchema('fit')" style="padding: 4px 12px; font-size: 12px;" title="Fit to Window">Fit</button>
+                        <span id="zoomLevel" style="font-size: 12px; color: var(--text-secondary); min-width: 50px; text-align: right;"></span>
                     </div>
                 </div>
             </div>
-            <div id="schemaContainer"></div>
+            <div id="schemaContainer">
+                <div id="schemaHint" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                     background: rgba(0,0,0,0.8); color: white; padding: 16px 24px; border-radius: 8px; 
+                     font-size: 14px; text-align: center; pointer-events: none; opacity: 0; transition: opacity 0.3s;">
+                    <div style="font-weight: 500; margin-bottom: 8px;">💡 Navigation Tips</div>
+                    <div style="font-size: 12px; line-height: 1.6;">
+                        <strong>Drag</strong> to pan • <strong>Ctrl + Scroll</strong> to zoom<br>
+                        <strong>+/−</strong> keys to zoom • <strong>F</strong> to fit • <strong>0</strong> to reset
+                    </div>
+                </div>
+            </div>
             <div class="modal-actions" style="justify-content: flex-end;">
                 <button class="secondary" onclick="app.hideSchema()">Close</button>
             </div>
@@ -159,8 +171,11 @@
             settings: null,
             editor: null,
             mermaidPromise: null,
-            currentSchemaScale: 1.8,
+            currentSchemaScale: 2.5,
             baseSchemaWidth: 800,
+            isPanning: false,
+            panStart: { x: 0, y: 0 },
+            scrollStart: { x: 0, y: 0 },
 
             async init() {
                 await this.loadSettings();
@@ -1154,7 +1169,7 @@
 
                     const svgElement = container.querySelector('svg');
                     if (svgElement) {
-                        // Set a reasonable default scale (50% of natural size)
+                        // Set a reasonable default scale
                         const originalWidth = parseFloat(svgElement.getAttribute('width') || '800');
                         this.baseSchemaWidth = originalWidth;
                         const scaledWidth = originalWidth * this.currentSchemaScale;
@@ -1162,6 +1177,24 @@
                         svgElement.style.width = scaledWidth + 'px';
                         svgElement.style.height = 'auto';
                         svgElement.style.maxWidth = 'none';
+                        
+                        // Update zoom level display
+                        const zoomDisplay = document.getElementById('zoomLevel');
+                        if (zoomDisplay) {
+                            zoomDisplay.textContent = `${Math.round(this.currentSchemaScale * 100)}%`;
+                        }
+                        
+                        // Setup pan and zoom controls
+                        this.setupSchemaPanAndZoom();
+                        
+                        // Show hint overlay briefly
+                        const hint = document.getElementById('schemaHint');
+                        if (hint) {
+                            hint.style.opacity = '1';
+                            setTimeout(() => {
+                                hint.style.opacity = '0';
+                            }, 3500);
+                        }
                         
                         console.log(`Scaled diagram from ${originalWidth}px to ${scaledWidth}px`);
                     }
@@ -1188,17 +1221,99 @@
                 if (!svgElement) return;
                 
                 if (factor === 'reset') {
-                    this.currentSchemaScale = 1.8;
+                    this.currentSchemaScale = 2.5;
+                } else if (factor === 'fit') {
+                    // Fit diagram to container width
+                    const containerWidth = container.clientWidth - 40; // Account for padding
+                    const originalWidth = this.baseSchemaWidth;
+                    this.currentSchemaScale = containerWidth / originalWidth;
                 } else {
                     this.currentSchemaScale *= factor;
-                    // Limit zoom range
-                    this.currentSchemaScale = Math.max(0.1, Math.min(3, this.currentSchemaScale));
+                    // Increased zoom range to 10x for better flexibility
+                    this.currentSchemaScale = Math.max(0.1, Math.min(10, this.currentSchemaScale));
                 }
                 
                 const scaledWidth = this.baseSchemaWidth * this.currentSchemaScale;
                 svgElement.style.width = scaledWidth + 'px';
                 
+                // Update zoom level display
+                const zoomDisplay = document.getElementById('zoomLevel');
+                if (zoomDisplay) {
+                    zoomDisplay.textContent = `${Math.round(this.currentSchemaScale * 100)}%`;
+                }
+                
                 console.log(`Zoom adjusted to ${(this.currentSchemaScale * 100).toFixed(0)}%`);
+            },
+
+            setupSchemaPanAndZoom() {
+                const container = document.getElementById('schemaContainer');
+                if (!container) return;
+
+                // Mouse wheel zoom with Ctrl key
+                container.addEventListener('wheel', (e) => {
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+                        this.zoomSchema(zoomFactor);
+                    }
+                }, { passive: false });
+
+                // Panning with mouse drag
+                container.addEventListener('mousedown', (e) => {
+                    // Only pan if clicking on the container background, not the SVG content
+                    if (e.target === container || e.target.closest('svg')) {
+                        this.isPanning = true;
+                        this.panStart = { x: e.clientX, y: e.clientY };
+                        this.scrollStart = { x: container.scrollLeft, y: container.scrollTop };
+                        container.style.cursor = 'grabbing';
+                        e.preventDefault();
+                    }
+                });
+
+                container.addEventListener('mousemove', (e) => {
+                    if (this.isPanning) {
+                        const dx = e.clientX - this.panStart.x;
+                        const dy = e.clientY - this.panStart.y;
+                        container.scrollLeft = this.scrollStart.x - dx;
+                        container.scrollTop = this.scrollStart.y - dy;
+                    }
+                });
+
+                const stopPanning = () => {
+                    if (this.isPanning) {
+                        this.isPanning = false;
+                        container.style.cursor = 'grab';
+                    }
+                };
+
+                container.addEventListener('mouseup', stopPanning);
+                container.addEventListener('mouseleave', stopPanning);
+
+                // Set cursor style
+                container.style.cursor = 'grab';
+
+                // Keyboard shortcuts for zoom
+                const keyHandler = (e) => {
+                    if (document.getElementById('schemaModal').classList.contains('show')) {
+                        if (e.key === '+' || e.key === '=') {
+                            e.preventDefault();
+                            this.zoomSchema(1.5);
+                        } else if (e.key === '-' || e.key === '_') {
+                            e.preventDefault();
+                            this.zoomSchema(0.75);
+                        } else if (e.key === '0') {
+                            e.preventDefault();
+                            this.zoomSchema('reset');
+                        } else if (e.key === 'f' || e.key === 'F') {
+                            e.preventDefault();
+                            this.zoomSchema('fit');
+                        }
+                    }
+                };
+
+                document.removeEventListener('keydown', this.schemaKeyHandler);
+                this.schemaKeyHandler = keyHandler;
+                document.addEventListener('keydown', keyHandler);
             },
 
             hideSchema() {
