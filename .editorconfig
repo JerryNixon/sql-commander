@@ -1,0 +1,37 @@
+﻿root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csx,vb,vbx}]
+indent_size = 4
+
+[*.{json,xml,yml,yaml}]
+indent_size = 2
+
+[*.cs]
+# Code quality analyzers
+dotnet_diagnostic.CA1031.severity = warning
+dotnet_diagnostic.CA1062.severity = warning
+dotnet_diagnostic.CA2007.severity = none
+
+# Style analyzers
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_prefer_braces = true:warning
+csharp_using_directive_placement = outside_namespace:warning
+
+# Naming conventions
+dotnet_naming_rule.private_fields_should_be_camelcase.severity = warning
+dotnet_naming_rule.private_fields_should_be_camelcase.symbols = private_fields
+dotnet_naming_rule.private_fields_should_be_camelcase.style = camelcase_underscore_prefix
+
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+
+dotnet_naming_style.camelcase_underscore_prefix.capitalization = camel_case
+dotnet_naming_style.camelcase_underscore_prefix.required_prefix = _

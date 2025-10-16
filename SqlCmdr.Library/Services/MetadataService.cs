@@ -1,10 +1,10 @@
 using Microsoft.Data.SqlClient;
-using SqlCmdr.Library.Models;
+using SqlCmdr.Models;
 using System.Data;
 using Microsoft.Extensions.Logging;
-using SqlCmdr.Library.Abstractions;
+using SqlCmdr.Abstractions;
 
-namespace SqlCmdr.Library.Services;
+namespace SqlCmdr.Services;
 
 public class MetadataService : IMetadataService
 {
@@ -45,7 +45,13 @@ public class MetadataService : IMetadataService
         var metadata = new DatabaseMetadata();
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync();
-        return metadata with { Tables = await GetTablesAsync(connection), Views = await GetViewsAsync(connection), StoredProcedures = await GetStoredProceduresAsync(connection), ForeignKeys = await GetForeignKeysAsync(connection) };
+        
+        metadata.TablesInternal.AddRange(await GetTablesAsync(connection));
+        metadata.ViewsInternal.AddRange(await GetViewsAsync(connection));
+        metadata.StoredProceduresInternal.AddRange(await GetStoredProceduresAsync(connection));
+        metadata.ForeignKeysInternal.AddRange(await GetForeignKeysAsync(connection));
+        
+        return metadata;
     }
 
     async Task<List<ForeignKeyMetadata>> GetForeignKeysAsync(SqlConnection connection)
@@ -109,14 +115,20 @@ public class MetadataService : IMetadataService
             var table = reader.GetString(1);
             if (currentSchema != schema || currentTable != table)
             {
-                if (current is not null) tables.Add(current);
+                if (current is not null)
+                {
+                    tables.Add(current);
+                }
                 current = new TableMetadata { Schema = schema, Name = table };
                 currentSchema = schema;
                 currentTable = table;
             }
-            current!.Columns.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7) });
+            current!.ColumnsInternal.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7) });
         }
-        if (current is not null) tables.Add(current);
+        if (current is not null)
+        {
+            tables.Add(current);
+        }
         return tables;
     }
 
@@ -150,14 +162,20 @@ public class MetadataService : IMetadataService
             var view = reader.GetString(1);
             if (currentSchema != schema || currentView != view)
             {
-                if (current is not null) views.Add(current);
+                if (current is not null)
+                {
+                    views.Add(current);
+                }
                 current = new ViewMetadata { Schema = schema, Name = view };
                 currentSchema = schema;
                 currentView = view;
             }
-            current!.Columns.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7) });
+            current!.ColumnsInternal.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7) });
         }
-        if (current is not null) views.Add(current);
+        if (current is not null)
+        {
+            views.Add(current);
+        }
         return views;
     }
 
@@ -192,7 +210,10 @@ public class MetadataService : IMetadataService
             var proc = reader.GetString(1);
             if (currentSchema != schema || currentProc != proc)
             {
-                if (current is not null) procedures.Add(current);
+                if (current is not null)
+                {
+                    procedures.Add(current);
+                }
                 var definition = reader.IsDBNull(8) ? null : reader.GetString(8);
                 current = new StoredProcedureMetadata { Schema = schema, Name = proc, Definition = definition };
                 currentSchema = schema;
@@ -200,13 +221,23 @@ public class MetadataService : IMetadataService
             }
             if (!reader.IsDBNull(2))
             {
-                current!.Parameters.Add(new ParameterMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), Direction = reader.GetString(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7) });
+                current!.ParametersInternal.Add(new ParameterMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), Direction = reader.GetString(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7) });
             }
         }
-        if (current is not null) procedures.Add(current);
+        if (current is not null)
+        {
+            procedures.Add(current);
+        }
         foreach (var proc in procedures)
         {
-            try { proc.OutputColumns.AddRange(await GetProcedureOutputColumnsAsync(connection, proc.FullName)); } catch { }
+            try
+            {
+                proc.OutputColumnsInternal.AddRange(await GetProcedureOutputColumnsAsync(connection, proc.FullName));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to get output columns for procedure {ProcedureName}", proc.FullName);
+            }
         }
         return procedures;
     }
@@ -227,7 +258,10 @@ public class MetadataService : IMetadataService
                 columns.Add(new ColumnMetadata { Name = columnName, DataType = systemTypeName, IsNullable = isNullable, MaxLength = reader.IsDBNull(reader.GetOrdinal("max_length")) ? null : reader.GetInt16(reader.GetOrdinal("max_length")), Precision = reader.IsDBNull(reader.GetOrdinal("precision")) ? null : reader.GetByte(reader.GetOrdinal("precision")), Scale = reader.IsDBNull(reader.GetOrdinal("scale")) ? null : reader.GetByte(reader.GetOrdinal("scale")) });
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to describe result set for procedure {ProcedureName}", procedureName);
+        }
         return columns;
     }
 }

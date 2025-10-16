@@ -1,16 +1,17 @@
 using Microsoft.Data.SqlClient;
-using SqlCmdr.Library.Models;
+using SqlCmdr.Models;
 using System.Data;
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
-using SqlCmdr.Library.Abstractions;
+using SqlCmdr.Abstractions;
 
-namespace SqlCmdr.Library.Services;
+namespace SqlCmdr.Services;
 
 public class QueryExecutionService : IQueryExecutionService
 {
     readonly ILogger<QueryExecutionService> _logger;
     SqlCommand? _currentCommand;
+    readonly object _commandLock = new();
 
     public QueryExecutionService(ILogger<QueryExecutionService> logger)
     {
@@ -19,67 +20,129 @@ public class QueryExecutionService : IQueryExecutionService
 
     public void CancelCurrentQuery()
     {
-        try { _currentCommand?.Cancel(); } catch { }
+        lock (_commandLock)
+        {
+            try
+            {
+                _currentCommand?.Cancel();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Error cancelling query");
+            }
+        }
     }
 
     public async Task<QueryResponse> ExecuteQueryAsync(string connectionString, QueryRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
+        {
             throw new ArgumentException("Connection string cannot be null or empty.", nameof(connectionString));
+        }
         
         if (request == null)
+        {
             throw new ArgumentNullException(nameof(request));
+        }
 
         if (string.IsNullOrWhiteSpace(request.Sql))
+        {
             throw new ArgumentException("SQL query cannot be null or empty.", nameof(request));
+        }
 
         var stopwatch = Stopwatch.StartNew();
-        var resultSets = new List<ResultSet>();
-        var messages = new List<string>();
+        var response = new QueryResponse();
         var totalRows = 0;
         var wasTruncated = false;
         var resultLimit = request.ResultLimit ?? 100;
+        
         try
         {
             await using var connection = new SqlConnection(connectionString);
-            connection.InfoMessage += (sender, e) => { foreach (SqlError error in e.Errors) messages.Add(error.Message); };
+            connection.InfoMessage += (sender, e) =>
+            {
+                foreach (SqlError error in e.Errors)
+                {
+                    response.MessagesInternal.Add(error.Message);
+                }
+            };
             await connection.OpenAsync(cancellationToken);
-            await using var command = new SqlCommand(request.Sql, connection) { CommandTimeout = 300 };
-            _currentCommand = command;
+            
+            SqlCommand command;
+            lock (_commandLock)
+            {
+                command = new SqlCommand(request.Sql, connection) { CommandTimeout = 300 };
+                _currentCommand = command;
+            }
+            
             try
             {
                 await using var reader = await command.ExecuteReaderAsync(cancellationToken);
                 do
                 {
-                    var columns = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList();
-                    var rows = new List<Dictionary<string, object?>>();
+                    var resultSet = new ResultSet();
+                    resultSet.ColumnsInternal.AddRange(Enumerable.Range(0, reader.FieldCount).Select(reader.GetName));
+                    
                     var rowCount = 0;
-                    while (await reader.ReadAsync(cancellationToken) && rowCount < resultLimit)
+                    while (rowCount < resultLimit && await reader.ReadAsync(cancellationToken))
                     {
                         var row = new Dictionary<string, object?>();
-                        for (var i = 0; i < reader.FieldCount; i++) row[columns[i]] = reader.IsDBNull(i) ? null : reader.GetValue(i);
-                        rows.Add(row);
+                        for (var i = 0; i < reader.FieldCount; i++)
+                        {
+                            row[resultSet.Columns[i]] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                        }
+                        resultSet.RowsInternal.Add(row);
                         rowCount++;
                         totalRows++;
                     }
-                    if (await reader.ReadAsync(cancellationToken)) wasTruncated = true;
-                    resultSets.Add(new ResultSet { Columns = columns, Rows = rows, RowCount = rowCount });
+                    
+                    // Check for truncation: if we hit the limit and there's more data
+                    if (rowCount == resultLimit && !reader.IsClosed && await reader.ReadAsync(cancellationToken))
+                    {
+                        wasTruncated = true;
+                    }
+                    
+                    response.ResultSetsInternal.Add(resultSet with { RowCount = rowCount });
                 } while (await reader.NextResultAsync(cancellationToken));
             }
-            finally { _currentCommand = null; }
+            finally
+            {
+                lock (_commandLock)
+                {
+                    _currentCommand = null;
+                }
+            }
+            
             stopwatch.Stop();
-            return new QueryResponse { Success = true, Messages = messages, ResultSets = resultSets, ElapsedMilliseconds = stopwatch.ElapsedMilliseconds, TotalRowsReturned = totalRows, WasTruncated = wasTruncated };
+            return response with 
+            { 
+                Success = true, 
+                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds, 
+                TotalRowsReturned = totalRows, 
+                WasTruncated = wasTruncated 
+            };
         }
         catch (OperationCanceledException)
         {
             stopwatch.Stop();
-            return new QueryResponse { Success = false, ErrorMessage = "Query was cancelled", Messages = messages, ElapsedMilliseconds = stopwatch.ElapsedMilliseconds };
+            _logger.LogDebug("Query was cancelled");
+            return response with 
+            { 
+                Success = false, 
+                ErrorMessage = "Query was cancelled", 
+                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds 
+            };
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
-            return new QueryResponse { Success = false, ErrorMessage = ex.Message, ElapsedMilliseconds = stopwatch.ElapsedMilliseconds };
+            _logger.LogDebug(ex, "Query execution failed");
+            return response with 
+            { 
+                Success = false, 
+                ErrorMessage = ex.Message, 
+                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds 
+            };
         }
-        finally { _currentCommand = null; }
     }
 }

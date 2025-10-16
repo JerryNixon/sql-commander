@@ -1,4 +1,4 @@
-namespace SqlCmdr.Library.Models;
+namespace SqlCmdr.Models;
 
 public record AppSettings
 {

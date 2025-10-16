@@ -1,23 +1,24 @@
-using SqlCmdr.Library.Models;
-using SqlCmdr.Library.Services;
-using SqlCmdr.Library.Abstractions;
+using SqlCmdr.Models;
+using SqlCmdr.Services;
+using SqlCmdr.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Hosting;
 using Moq;
 using FluentAssertions;
 using AutoFixture;
+using System.IO;
 
-namespace SqlCmdr.Library.Tests;
+namespace SqlCmdr.Tests;
 
-[Trait("Category", "Unit")]
+[Trait("Category", "Integration")]
 [Trait("Service", "SettingsService")]
 public class SettingsServiceTests : IDisposable
 {
     private readonly IFixture _fixture;
     private readonly Mock<ILogger<SettingsService>> _mockLogger;
-    private readonly Mock<IWebHostEnvironment> _mockEnvironment;
+    private readonly Mock<IHostEnvironment> _mockEnvironment;
     private readonly string _tempPath;
     private readonly IConfiguration _configuration;
 
@@ -25,7 +26,7 @@ public class SettingsServiceTests : IDisposable
     {
         _fixture = new Fixture();
         _mockLogger = new Mock<ILogger<SettingsService>>();
-        _mockEnvironment = new Mock<IWebHostEnvironment>();
+        _mockEnvironment = new Mock<IHostEnvironment>();
         _tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(_tempPath);
         _mockEnvironment.Setup(e => e.ContentRootPath).Returns(_tempPath);

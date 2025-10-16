@@ -1,6 +1,5 @@
 using Serilog;
-using SqlCmdr.Library.Services;
-using SqlCmdr.Library.Abstractions;
+using SqlCmdr.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,9 +13,7 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 builder.Services.AddRazorPages();
-builder.Services.AddSingleton<ISettingsService, SettingsService>();
-builder.Services.AddSingleton<IMetadataService, MetadataService>();
-builder.Services.AddSingleton<IQueryExecutionService, QueryExecutionService>();
+builder.Services.AddSqlCmdr();
 
 var app = builder.Build();
 

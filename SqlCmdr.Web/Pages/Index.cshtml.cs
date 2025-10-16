@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using SqlCmdr.Library.Models;
-using SqlCmdr.Library.Abstractions;
+using SqlCmdr.Models;
+using SqlCmdr.Abstractions;
 using System.Text.Json;
 
-namespace SqlCmdr.Pages;
+namespace SqlCmdr.Web.Pages;
 
 [IgnoreAntiforgeryToken]
 public class IndexModel : PageModel

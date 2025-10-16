@@ -1,6 +1,6 @@
-using SqlCmdr.Library.Services;
-using SqlCmdr.Library.Abstractions;
-using SqlCmdr.Library.Models;
+using SqlCmdr.Services;
+using SqlCmdr.Abstractions;
+using SqlCmdr.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -8,9 +8,9 @@ using FluentAssertions;
 using AutoFixture;
 using AutoFixture.Xunit2;
 
-namespace SqlCmdr.Library.Tests;
+namespace SqlCmdr.Tests;
 
-[Trait("Category", "Unit")]
+[Trait("Category", "Integration")]
 [Trait("Service", "MetadataService")]
 public class MetadataServiceTests
 {

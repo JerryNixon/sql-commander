@@ -1,4 +1,4 @@
-namespace SqlCmdr.Library.Models;
+namespace SqlCmdr.Models;
 
 public record QueryRequest
 {
@@ -8,20 +8,32 @@ public record QueryRequest
 
 public record QueryResponse
 {
+    private readonly List<string> _messages = [];
+    private readonly List<ResultSet> _resultSets = [];
+
     public bool Success { get; init; }
     public string? ErrorMessage { get; init; }
-    public List<string> Messages { get; init; } = [];
-    public List<ResultSet> ResultSets { get; init; } = [];
+    public IReadOnlyList<string> Messages => _messages;
+    public IReadOnlyList<ResultSet> ResultSets => _resultSets;
     public long ElapsedMilliseconds { get; init; }
     public int TotalRowsReturned { get; init; }
     public bool WasTruncated { get; init; }
+
+    public List<string> MessagesInternal => _messages;
+    public List<ResultSet> ResultSetsInternal => _resultSets;
 }
 
 public record ResultSet
 {
-    public List<string> Columns { get; init; } = [];
-    public List<Dictionary<string, object?>> Rows { get; init; } = [];
+    private readonly List<string> _columns = [];
+    private readonly List<Dictionary<string, object?>> _rows = [];
+
+    public IReadOnlyList<string> Columns => _columns;
+    public IReadOnlyList<Dictionary<string, object?>> Rows => _rows;
     public int RowCount { get; init; }
+
+    public List<string> ColumnsInternal => _columns;
+    public List<Dictionary<string, object?>> RowsInternal => _rows;
 }
 
 public record ConnectionTestResult

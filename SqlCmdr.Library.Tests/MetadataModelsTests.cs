@@ -1,10 +1,10 @@
-using SqlCmdr.Library.Models;
+using SqlCmdr.Models;
 using FluentAssertions;
 using AutoFixture;
 
-namespace SqlCmdr.Library.Tests;
+namespace SqlCmdr.Tests;
 
-[Trait("Category", "Unit")]
+[Trait("Category", "Integration")]
 [Trait("Component", "Models")]
 public class MetadataModelsTests
 {
@@ -270,7 +270,7 @@ public class MetadataModelsTests
         };
 
         // Act
-        table.Columns.Add(column);
+        table.ColumnsInternal.Add(column);
 
         // Assert
         table.Columns.Should().ContainSingle().Which.Should().Be(column);
@@ -416,11 +416,11 @@ public class MetadataModelsTests
         };
 
         // Act
-        var updated = original with { Tables = tables };
+        original.TablesInternal.AddRange(tables);
 
         // Assert
-        updated.Tables.Should().HaveCount(2);
-        updated.Tables.Should().BeEquivalentTo(tables);
+        original.Tables.Should().HaveCount(2);
+        original.Tables.Should().BeEquivalentTo(tables);
     }
 
     #endregion

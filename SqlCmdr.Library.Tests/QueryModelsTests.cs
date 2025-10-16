@@ -1,10 +1,10 @@
-using SqlCmdr.Library.Models;
+using SqlCmdr.Models;
 using FluentAssertions;
 using AutoFixture;
 
-namespace SqlCmdr.Library.Tests;
+namespace SqlCmdr.Tests;
 
-[Trait("Category", "Unit")]
+[Trait("Category", "Integration")]
 [Trait("Component", "Models")]
 public class QueryModelsTests
 {
@@ -93,12 +93,9 @@ public class QueryModelsTests
         {
             Success = true,
             ElapsedMilliseconds = 150,
-            TotalRowsReturned = 42,
-            ResultSets = new List<ResultSet>
-            {
-                new() { RowCount = 42 }
-            }
+            TotalRowsReturned = 42
         };
+        response.ResultSetsInternal.Add(new ResultSet { RowCount = 42 });
 
         // Assert
         response.Success.Should().BeTrue();
@@ -127,20 +124,14 @@ public class QueryModelsTests
     public void QueryResponse_WithMultipleResultSets_StoresCorrectly()
     {
         // Arrange
-        var resultSets = new List<ResultSet>
-        {
-            new() { RowCount = 10 },
-            new() { RowCount = 20 },
-            new() { RowCount = 30 }
-        };
-
-        // Act
         var response = new QueryResponse
         {
             Success = true,
-            ResultSets = resultSets,
             TotalRowsReturned = 60
         };
+        response.ResultSetsInternal.Add(new ResultSet { RowCount = 10 });
+        response.ResultSetsInternal.Add(new ResultSet { RowCount = 20 });
+        response.ResultSetsInternal.Add(new ResultSet { RowCount = 30 });
 
         // Assert
         response.ResultSets.Should().HaveCount(3);
@@ -190,12 +181,9 @@ public class QueryModelsTests
         };
 
         // Act
-        var resultSet = new ResultSet
-        {
-            Columns = columns,
-            Rows = rows,
-            RowCount = rows.Count
-        };
+        var resultSet = new ResultSet { RowCount = rows.Count };
+        resultSet.ColumnsInternal.AddRange(columns);
+        resultSet.RowsInternal.AddRange(rows);
 
         // Assert
         resultSet.Columns.Should().HaveCount(3);
@@ -213,7 +201,8 @@ public class QueryModelsTests
         };
 
         // Act
-        var resultSet = new ResultSet { Rows = rows, RowCount = 1 };
+        var resultSet = new ResultSet { RowCount = 1 };
+        resultSet.RowsInternal.AddRange(rows);
 
         // Assert
         resultSet.Rows[0]["Name"].Should().BeNull();

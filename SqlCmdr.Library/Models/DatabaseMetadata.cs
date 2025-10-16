@@ -1,11 +1,23 @@
-namespace SqlCmdr.Library.Models;
+using SqlCmdr.Helpers;
+
+namespace SqlCmdr.Models;
 
 public record DatabaseMetadata
 {
-    public List<TableMetadata> Tables { get; init; } = [];
-    public List<ViewMetadata> Views { get; init; } = [];
-    public List<StoredProcedureMetadata> StoredProcedures { get; init; } = [];
-    public List<ForeignKeyMetadata> ForeignKeys { get; init; } = [];
+    private readonly List<TableMetadata> _tables = [];
+    private readonly List<ViewMetadata> _views = [];
+    private readonly List<StoredProcedureMetadata> _storedProcedures = [];
+    private readonly List<ForeignKeyMetadata> _foreignKeys = [];
+
+    public IReadOnlyList<TableMetadata> Tables => _tables;
+    public IReadOnlyList<ViewMetadata> Views => _views;
+    public IReadOnlyList<StoredProcedureMetadata> StoredProcedures => _storedProcedures;
+    public IReadOnlyList<ForeignKeyMetadata> ForeignKeys => _foreignKeys;
+
+    public List<TableMetadata> TablesInternal => _tables;
+    public List<ViewMetadata> ViewsInternal => _views;
+    public List<StoredProcedureMetadata> StoredProceduresInternal => _storedProcedures;
+    public List<ForeignKeyMetadata> ForeignKeysInternal => _foreignKeys;
 }
 
 public record ForeignKeyMetadata
@@ -21,28 +33,42 @@ public record ForeignKeyMetadata
 
 public record TableMetadata
 {
+    private readonly List<ColumnMetadata> _columns = [];
+
     public required string Schema { get; init; }
     public required string Name { get; init; }
-    public List<ColumnMetadata> Columns { get; init; } = [];
+    public IReadOnlyList<ColumnMetadata> Columns => _columns;
     public string FullName => $"[{Schema}].[{Name}]";
+
+    public List<ColumnMetadata> ColumnsInternal => _columns;
 }
 
 public record ViewMetadata
 {
+    private readonly List<ColumnMetadata> _columns = [];
+
     public required string Schema { get; init; }
     public required string Name { get; init; }
-    public List<ColumnMetadata> Columns { get; init; } = [];
+    public IReadOnlyList<ColumnMetadata> Columns => _columns;
     public string FullName => $"[{Schema}].[{Name}]";
+
+    public List<ColumnMetadata> ColumnsInternal => _columns;
 }
 
 public record StoredProcedureMetadata
 {
+    private readonly List<ParameterMetadata> _parameters = [];
+    private readonly List<ColumnMetadata> _outputColumns = [];
+
     public required string Schema { get; init; }
     public required string Name { get; init; }
-    public List<ParameterMetadata> Parameters { get; init; } = [];
-    public List<ColumnMetadata> OutputColumns { get; init; } = [];
+    public IReadOnlyList<ParameterMetadata> Parameters => _parameters;
+    public IReadOnlyList<ColumnMetadata> OutputColumns => _outputColumns;
     public string? Definition { get; init; }
     public string FullName => $"[{Schema}].[{Name}]";
+
+    public List<ParameterMetadata> ParametersInternal => _parameters;
+    public List<ColumnMetadata> OutputColumnsInternal => _outputColumns;
 }
 
 public record ColumnMetadata
@@ -53,19 +79,7 @@ public record ColumnMetadata
     public int? MaxLength { get; init; }
     public int? Precision { get; init; }
     public int? Scale { get; init; }
-    public string DisplayType
-    {
-        get
-        {
-            var baseType = DataType.ToLower();
-            return baseType switch
-            {
-                "varchar" or "char" or "nvarchar" or "nchar" when MaxLength > 0 => $"{DataType}({(MaxLength == -1 ? "max" : MaxLength.ToString())})",
-                "decimal" or "numeric" when Precision.HasValue => $"{DataType}({Precision},{Scale ?? 0})",
-                _ => DataType
-            };
-        }
-    }
+    public string DisplayType => TypeFormatter.FormatDataType(DataType, MaxLength, Precision, Scale);
 }
 
 public record ParameterMetadata
@@ -76,17 +90,5 @@ public record ParameterMetadata
     public int? MaxLength { get; init; }
     public int? Precision { get; init; }
     public int? Scale { get; init; }
-    public string DisplayType
-    {
-        get
-        {
-            var baseType = DataType.ToLower();
-            return baseType switch
-            {
-                "varchar" or "char" or "nvarchar" or "nchar" when MaxLength > 0 => $"{DataType}({(MaxLength == -1 ? "max" : MaxLength.ToString())})",
-                "decimal" or "numeric" when Precision.HasValue => $"{DataType}({Precision},{Scale ?? 0})",
-                _ => DataType
-            };
-        }
-    }
+    public string DisplayType => TypeFormatter.FormatDataType(DataType, MaxLength, Precision, Scale);
 }

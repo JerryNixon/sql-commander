@@ -1,15 +1,15 @@
-using SqlCmdr.Library.Models;
-using SqlCmdr.Library.Services;
-using SqlCmdr.Library.Abstractions;
+using SqlCmdr.Models;
+using SqlCmdr.Services;
+using SqlCmdr.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using FluentAssertions;
 using AutoFixture;
 
-namespace SqlCmdr.Library.Tests;
+namespace SqlCmdr.Tests;
 
-[Trait("Category", "Unit")]
+[Trait("Category", "Integration")]
 [Trait("Service", "QueryExecutionService")]
 public class QueryExecutionServiceTests
 {

@@ -1,6 +1,6 @@
-using SqlCmdr.Library.Models;
+using SqlCmdr.Models;
 
-namespace SqlCmdr.Library.Abstractions;
+namespace SqlCmdr.Abstractions;
 
 public interface ISettingsService
 {
