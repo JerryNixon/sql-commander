@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model SqlCmdr.Web.Pages.IndexModel
 @{
     Layout = null;
@@ -390,7 +390,7 @@
                                 <span class="object-actions">`;
                         
                         if (type === 'proc') {
-                            html += `<button onclick="app.insertExecute('${fullName}', event)">Execute</button>`;
+                            html += `<button onclick="app.insertExecute('${fullName}', event)">EXECUTE</button>`;
                         } else {
                             html += `<button onclick="app.insertSelect('${fullName}', event)">SELECT</button>`;
                             html += `<button onclick="app.insertInsert('${fullName}', event)">INSERT</button>`;
