@@ -18,7 +18,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\SqlCommander.Web\SqlCommander.Web.csproj" />
+	  <ProjectReference Include="..\SqlCmdr.Web\SqlCmdr.Web.csproj" />
 	  <ProjectReference Include="..\SqlServer\SqlServer.sqlproj" />
 	</ItemGroup>
 

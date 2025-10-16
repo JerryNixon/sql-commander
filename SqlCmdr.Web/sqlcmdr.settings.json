@@ -1,0 +1,11 @@
+{
+  "Server": "127.0.0.1,2468",
+  "Database": "db",
+  "UserId": "sa",
+  "Password": ")YW53\u002B2M(sfJDnt!*0rP(G",
+  "DefaultResultLimit": 100,
+  "TrustServerCertificate": true,
+  "ConnectionTimeout": 30,
+  "ConfirmActions": false,
+  "Theme": "light"
+}

@@ -2,7 +2,7 @@
 @model IndexModel
 @{
     Layout = null;
-    var title = $"SQL Commander: {Model.ServerName}/{Model.DatabaseName}";
+    var title = $"sql cmdr: {Model.ServerName}/{Model.DatabaseName}";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -12,7 +12,7 @@
     <title>@title</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.css">
     <link rel="stylesheet" href="~/css/site.css" />
-    <link rel="stylesheet" href="~/css/sqlcommander.css" />
+    <link rel="stylesheet" href="~/css/sqlcmdr.css" />
 </head>
 <body>
     <div class="container">
@@ -276,7 +276,7 @@
                 if (settings.server) {
                     document.getElementById('statusDatabase').textContent = settings.database;
                     document.getElementById('statusUser').textContent = settings.userId;
-                    document.title = `SQL Commander: ${settings.server}/${settings.database}`;
+                    document.title = `sql cmdr: ${settings.server}/${settings.database}`;
                 }
             },
 

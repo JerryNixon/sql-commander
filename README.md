@@ -1,10 +1,10 @@
-# SQL Commander
+# SQL Cmdr
 
 A lightweight web-based SQL Server management tool for developers who need quick database exploration, query execution, and script generation without the overhead of full-featured database management tools.
 
-## What is SQL Commander?
+## What is SQL Cmdr?
 
-SQL Commander provides a single-page interface for:
+SQL Cmdr provides a single-page interface for:
 - Browsing database objects (tables, views, stored procedures)
 - Executing SQL queries with real-time feedback
 - Generating CREATE, SELECT, and DROP scripts
@@ -28,13 +28,13 @@ Perfect for:
 Press F5 in Visual Studio to launch the application.
 
 The solution uses .NET Aspire to:
-- Orchestrate the SQL Commander web app
+- Orchestrate the SQL Cmdr web app
 - Configure the development environment
 - Manage the SQL Server connection
 - Provide a rich debugging experience with the Aspire dashboard
 
 The Aspire AppHost will automatically:
-1. Launch the SQL Commander web application
+1. Launch the SQL Cmdr web application
 2. Open the Aspire dashboard for monitoring
 3. Configure logging and telemetry
 4. Handle service orchestration
@@ -42,7 +42,7 @@ The Aspire AppHost will automatically:
 ### First Run Setup
 
 1. Press F5 to launch
-2. In SQL Commander, click the Settings icon
+2. In SQL Cmdr, click the Settings icon
 3. Enter your SQL Server connection details:
    - Server name
    - Database name
@@ -77,11 +77,11 @@ This solution uses **.NET Aspire** for local development:
 ### Project Structure
 ```
 sql-commander/
-├── AppHost/                    # .NET Aspire orchestration
-├── SqlCommander.Web/           # Main web application
-├── SqlCommander.Library/       # Business logic and services
-├── SqlCommander.Library.Tests/ # Unit tests (120 tests)
-└── SqlServer/                  # Database project
+├── AppHost/                  # .NET Aspire orchestration
+├── SqlCmdr.Web/              # Main web application
+├── SqlCmdr.Library/          # Business logic and services
+├── SqlCmdr.Library.Tests/    # Unit tests (120 tests)
+└── SqlServer/                # Database project
 ```
 
 ## License
