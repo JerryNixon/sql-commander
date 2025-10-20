@@ -1,0 +1,36 @@
+﻿version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong!Passw0rd -Q 'SELECT 1' || exit 1
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  sqlcmdr:
+    build:
+      context: .
+      dockerfile: SqlCmdr.Web/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ConnectionStrings__db=Server=sqlserver;Database=master;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=true;Encrypt=true
+      - ASPNETCORE_URLS=http://+:8080
+      - SQLCMDR_FILE_LOG=0
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+volumes:
+  sqlserver-data:

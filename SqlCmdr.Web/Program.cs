@@ -3,12 +3,19 @@ using SqlCmdr.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-Log.Logger = new LoggerConfiguration()
+var fileLoggingEnabled = string.Equals(builder.Configuration["SQLCMDR_FILE_LOG"], "1", StringComparison.OrdinalIgnoreCase);
+
+var loggerConfig = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
-    .WriteTo.File("logs/sqlcmdr-.txt", rollingInterval: RollingInterval.Day)
-    .CreateLogger();
+    .WriteTo.Console();
+
+if (fileLoggingEnabled)
+{
+    loggerConfig = loggerConfig.WriteTo.File("logs/sqlcmdr-.txt", rollingInterval: RollingInterval.Day);
+}
+
+Log.Logger = loggerConfig.CreateLogger();
 
 builder.Host.UseSerilog();
 
@@ -22,6 +29,8 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error");
     app.UseHsts();
 }
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();

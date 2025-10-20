@@ -4,9 +4,6 @@
 
   <PropertyGroup>
 	<OutputType>Exe</OutputType>
-	<TargetFramework>net8.0</TargetFramework>
-	<ImplicitUsings>enable</ImplicitUsings>
-	<Nullable>enable</Nullable>
 	<UserSecretsId>e38130af-6f8d-4eb3-a216-b01fc34a674c</UserSecretsId>
   </PropertyGroup>
 

@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/.vs/
+**/*.user
+**/*.swp
+.git
+.gitignore
+Dockerfile*
+SqlCmdr.Library.Tests/
+**/sqlcmdr.settings.json
+SqlCmdr.Web/sqlcmdr.settings.json
+# Keep documentation
+!README.md
+!LICENSE
