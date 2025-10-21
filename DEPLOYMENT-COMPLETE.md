@@ -1,6 +1,6 @@
 # 🎉 SQL Commander - Docker Hub Deployment COMPLETE
 
-**Deployment Date:** October 20, 2025  
+**Deployment Date:** October 21, 2025  
 **Status:** ✅ SUCCESSFULLY DEPLOYED TO DOCKER HUB
 
 ---
@@ -11,8 +11,9 @@ Your SQL Commander is now live on Docker Hub!
 
 - **Repository:** [jerrynixon/sql-commander](https://hub.docker.com/r/jerrynixon/sql-commander)
 - **Tags Available:**
-  - `latest` (sha256:77a0701ccf126c158248f12d8369823062d8cd894f08ae2af0c7431198e47c5e)
-  - `1.0.0` (sha256:77a0701ccf126c158248f12d8369823062d8cd894f08ae2af0c7431198e47c5e)
+  - `latest` (sha256:927c8857fd7e998eea067bad2152826524bcf08298c49490ff974c0454ab4a66)
+  - `1.0.3` (sha256:927c8857fd7e998eea067bad2152826524bcf08298c49490ff974c0454ab4a66)
+  - `1.0.0` (sha256:77a0701ccf126c158248f12d8369823062d8cd894f08ae2af0c7431198e47c5e) - Previous
 - **Image Size:** 265MB
 
 ---
@@ -83,12 +84,12 @@ To deploy new versions:
 
 ```bash
 # Using the build script (easiest)
-build-and-push.bat 1.1.0
+build-and-push.bat 1.0.4
 
 # Manual
-docker build -f SqlCmdr.Web\Dockerfile -t jerrynixon/sql-commander:latest -t jerrynixon/sql-commander:1.1.0 .
+docker build -f SqlCmdr.Web\Dockerfile -t jerrynixon/sql-commander:latest -t jerrynixon/sql-commander:1.0.4 .
 docker push jerrynixon/sql-commander:latest
-docker push jerrynixon/sql-commander:1.1.0
+docker push jerrynixon/sql-commander:1.0.4
 ```
 
 ---
@@ -121,6 +122,27 @@ Consider setting up:
 3. **Multi-arch Builds** - Support ARM64 for Apple Silicon
 4. **Image Scanning** - Automated vulnerability scanning
 5. **Release Notes** - Document changes between versions
+
+---
+
+## 📝 Version History
+
+### Version 1.0.3 (October 21, 2025)
+- **Changes:**
+  - Fixed schema modal "Fit" button crash (undefined variable error)
+  - Added baseSchemaHeight initialization for proper aspect ratio calculations
+  - Improved viewBox normalization and zoom fit logic
+  - Enhanced dimension recovery with fallback mechanisms
+  - All 120 tests passing
+- **Digest:** sha256:927c8857fd7e998eea067bad2152826524bcf08298c49490ff974c0454ab4a66
+
+### Version 1.0.0 (October 20, 2025)
+- **Changes:**
+  - Initial Docker Hub deployment
+  - Multi-stage build with .NET 8.0
+  - Non-root user security
+  - Health endpoint implementation
+- **Digest:** sha256:77a0701ccf126c158248f12d8369823062d8cd894f08ae2af0c7431198e47c5e
 
 ---
 

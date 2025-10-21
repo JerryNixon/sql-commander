@@ -173,6 +173,7 @@
             mermaidPromise: null,
             currentSchemaScale: 2.5,
             baseSchemaWidth: 800,
+            baseSchemaHeight: 600,
             isPanning: false,
             panStart: { x: 0, y: 0 },
             scrollStart: { x: 0, y: 0 },
@@ -1169,26 +1170,42 @@
 
                     const svgElement = container.querySelector('svg');
                     if (svgElement) {
-                        // Get original dimensions and set base width/height
-                        const originalWidth = parseFloat(svgElement.getAttribute('width') || '800');
-                        const originalHeight = parseFloat(svgElement.getAttribute('height') || svgElement.viewBox?.baseVal?.height || svgElement.getBBox().height || '600');
-                        this.baseSchemaWidth = originalWidth;
-                        this.baseSchemaHeight = originalHeight;
-                        
-                        // Auto-fit to container on load
-                        const containerWidth = container.clientWidth - 40; // Account for padding
-                        const containerHeight = container.clientHeight - 40; // Account for padding
-                        
-                        // Calculate scale factors for both dimensions
-                        const scaleWidth = containerWidth / originalWidth;
-                        const scaleHeight = containerHeight / originalHeight;
-                        
-                        // Use the smaller scale to ensure the entire diagram fits
-                        this.currentSchemaScale = Math.min(scaleWidth, scaleHeight);
-                        const scaledWidth = originalWidth * this.currentSchemaScale;
-                        
-                        svgElement.style.width = scaledWidth + 'px';
-                        svgElement.style.height = 'auto';
+                        // Normalize the SVG viewBox so we can work with the actual rendered bounds
+                        const bbox = svgElement.getBBox();
+                        const padding = 32;
+                        const viewBoxX = bbox.x - padding;
+                        const viewBoxY = bbox.y - padding;
+                        const viewBoxWidth = Math.max(1, bbox.width + padding * 2);
+                        const viewBoxHeight = Math.max(1, bbox.height + padding * 2);
+
+                        svgElement.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+                        svgElement.removeAttribute('width');
+                        svgElement.removeAttribute('height');
+
+                        // Store baseline dimensions derived from the cleaned viewBox
+                        this.baseSchemaWidth = viewBoxWidth;
+                        this.baseSchemaHeight = viewBoxHeight;
+
+                        // Auto-fit to container based on dominant orientation
+                        const containerWidth = Math.max(200, (container.clientWidth || container.offsetWidth || viewBoxWidth) - 40);
+                        const containerHeight = Math.max(200, (container.clientHeight || container.offsetHeight || viewBoxHeight) - 40);
+
+                        const diagramAspectRatio = viewBoxWidth / viewBoxHeight;
+                        const containerAspectRatio = containerWidth / containerHeight;
+
+                        if (diagramAspectRatio < containerAspectRatio) {
+                            // Diagram is taller/narrower - fit to height
+                            this.currentSchemaScale = containerHeight / viewBoxHeight;
+                        } else {
+                            // Diagram is wider/shorter - fit to width
+                            this.currentSchemaScale = containerWidth / viewBoxWidth;
+                        }
+
+                        const scaledWidth = viewBoxWidth * this.currentSchemaScale;
+                        const scaledHeight = viewBoxHeight * this.currentSchemaScale;
+
+                        svgElement.style.width = `${scaledWidth}px`;
+                        svgElement.style.height = `${scaledHeight}px`;
                         svgElement.style.maxWidth = 'none';
                         
                         // Update zoom level display
@@ -1208,8 +1225,7 @@
                                 hint.style.opacity = '0';
                             }, 3500);
                         }
-                        
-                        console.log(`Scaled diagram from ${originalWidth}px to ${scaledWidth}px`);
+                        console.log(`Schema diagram base dimensions set to ${viewBoxWidth.toFixed(0)}x${viewBoxHeight.toFixed(0)}. Rendered at ${Math.round(this.currentSchemaScale * 100)}% scale.`);
                     }
                 } catch (renderError) {
                     console.error('Mermaid render error:', renderError);
@@ -1236,26 +1252,44 @@
                 if (factor === 'reset') {
                     this.currentSchemaScale = 2.5;
                 } else if (factor === 'fit') {
-                    // Fit diagram to container, considering both width and height
-                    const containerWidth = container.clientWidth - 40; // Account for padding
-                    const containerHeight = container.clientHeight - 40; // Account for padding
+                    if (!this.baseSchemaWidth || !this.baseSchemaHeight) {
+                        const box = svgElement.viewBox?.baseVal;
+                        if (box) {
+                            this.baseSchemaWidth = box.width;
+                            this.baseSchemaHeight = box.height;
+                        } else {
+                            const fallbackBox = svgElement.getBBox();
+                            this.baseSchemaWidth = fallbackBox.width || 1;
+                            this.baseSchemaHeight = fallbackBox.height || 1;
+                        }
+                    }
+
                     const originalWidth = this.baseSchemaWidth;
-                    const originalHeight = this.baseSchemaHeight || (svgElement.viewBox?.baseVal?.height || svgElement.getBBox().height);
-                    
-                    // Calculate scale factors for both dimensions
-                    const scaleWidth = containerWidth / originalWidth;
-                    const scaleHeight = containerHeight / originalHeight;
-                    
-                    // Use the smaller scale to ensure the entire diagram fits
-                    this.currentSchemaScale = Math.min(scaleWidth, scaleHeight);
+                    const originalHeight = this.baseSchemaHeight;
+
+                    const containerWidth = Math.max(200, (container.clientWidth || container.offsetWidth || originalWidth) - 40);
+                    const containerHeight = Math.max(200, (container.clientHeight || container.offsetHeight || originalHeight) - 40);
+
+                    const diagramAspectRatio = originalWidth / originalHeight;
+                    const containerAspectRatio = containerWidth / containerHeight;
+
+                    if (diagramAspectRatio < containerAspectRatio) {
+                        // Diagram is taller/narrower - fit to height
+                        this.currentSchemaScale = containerHeight / originalHeight;
+                    } else {
+                        // Diagram is wider/shorter - fit to width
+                        this.currentSchemaScale = containerWidth / originalWidth;
+                    }
                 } else {
                     this.currentSchemaScale *= factor;
                     // Increased zoom range to 10x for better flexibility
                     this.currentSchemaScale = Math.max(0.1, Math.min(10, this.currentSchemaScale));
                 }
                 
-                const scaledWidth = this.baseSchemaWidth * this.currentSchemaScale;
-                svgElement.style.width = scaledWidth + 'px';
+                const scaledWidth = Math.max(1, this.baseSchemaWidth * this.currentSchemaScale);
+                const scaledHeight = Math.max(1, this.baseSchemaHeight * this.currentSchemaScale);
+                svgElement.style.width = `${scaledWidth}px`;
+                svgElement.style.height = `${scaledHeight}px`;
                 
                 // Update zoom level display
                 const zoomDisplay = document.getElementById('zoomLevel');

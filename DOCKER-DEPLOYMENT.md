@@ -11,7 +11,7 @@ This document provides instructions for deploying SQL Commander to Docker Hub.
 ## Quick Deploy
 Use the provided batch script to build and push in one command:
 ```bash
-build-and-push.bat 1.0.0
+build-and-push.bat 1.0.3
 ```
 
 This will:
@@ -22,7 +22,7 @@ This will:
 
 ### 1. Build Images
 ```bash
-docker build -f SqlCmdr.Web\Dockerfile -t jerrynixon/sql-commander:latest -t jerrynixon/sql-commander:1.0.0 .
+docker build -f SqlCmdr.Web\Dockerfile -t jerrynixon/sql-commander:latest -t jerrynixon/sql-commander:1.0.3 .
 ```
 
 ### 2. Test Locally
@@ -43,13 +43,13 @@ docker stop sqlcmdr-test
 ### 3. Push to Docker Hub
 ```bash
 docker push jerrynixon/sql-commander:latest
-docker push jerrynixon/sql-commander:1.0.0
+docker push jerrynixon/sql-commander:1.0.3
 ```
 
 ## Version Management
-- Always tag with both `latest` and semantic version (e.g., `1.0.0`)
+- Always tag with both `latest` and semantic version (e.g., `1.0.3`)
 - Update version number for each release
-- Consider using `1.0.0`, `1.0`, and `1` for compatibility
+- Consider using `1.0.3`, `1.0`, and `1` for compatibility
 
 ## CI/CD Considerations
 For automated builds, consider creating a GitHub Actions workflow:
