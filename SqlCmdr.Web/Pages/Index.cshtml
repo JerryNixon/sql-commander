@@ -1314,9 +1314,9 @@
                 const password = this.settings?.password ?? '';
                 const trust = this.settings?.trustServerCertificate !== false;
 
-                const profileParts = [server];
+                let profileName = `(${server})`;
                 if (database) {
-                    profileParts.push(database);
+                    profileName = `${database}(${server})`;
                 }
 
                 const query = this.buildVsCodeQuery({
@@ -1327,7 +1327,7 @@
                     trustServerCertificate: String(trust),
                     authenticationType: 'SqlLogin',
                     encrypt: 'Optional',
-                    profileName: `(${profileParts.join('/')})`
+                    profileName
                 });
 
                 const url = `vscode://ms-mssql.mssql/connect?${query}`;
