@@ -1289,10 +1289,16 @@
                 return withoutPrefix;
             },
 
+            encodeVsCodeValue(value) {
+                const asString = String(value);
+                const encoded = encodeURIComponent(asString);
+                return encoded.replace(/%2B/g, '%252B');
+            },
+
             buildVsCodeQuery(values) {
                 return Object.entries(values)
                     .filter(([, value]) => value !== undefined && value !== null && value !== '')
-                    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+                    .map(([key, value]) => `${encodeURIComponent(key)}=${this.encodeVsCodeValue(value)}`)
                     .join('&');
             },
 
