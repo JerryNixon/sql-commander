@@ -47,6 +47,12 @@ Health Check:
 Persistence:
 - Settings stored in `sqlcmdr.settings.json` in container working directory
 
+## VS Code Integration
+
+- The toolbar includes an **Open in VS Code** button that builds a `vscode://ms-mssql.mssql/connect` link from your current settings and launches the VS Code connection dialog.
+- Requires the [MS SQL extension for VS Code](https://marketplace.visualstudio.com/items?itemName=ms-mssql.mssql).
+- When no server name is configured SQL Cmdr falls back to the current browser host on port 1433.
+
 ## Architecture
 - ASP.NET Core 8 Razor Pages
 - Microsoft.Data.SqlClient

@@ -368,6 +368,20 @@ body {
     background: var(--button-hover);
 }
 
+.editor-toolbar button.vscode-link {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.editor-toolbar button.vscode-link:hover,
+.editor-toolbar button.vscode-link:focus {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--button-secondary-hover);
+}
+
 .editor-toolbar button:disabled {
     background: var(--button-disabled);
     cursor: not-allowed;

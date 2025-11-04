@@ -41,6 +41,7 @@
                             <button id="cancelBtn" onclick="app.cancelQuery()" style="display: none;">⬛ Cancel</button>
                         </div>
                         <div class="toolbar-right">
+                            <button id="connectVsCodeBtn" type="button" class="vscode-link" title="Open connection dialog in VS Code">Open in VS Code</button>
                             <button onclick="app.showSettings()">Settings</button>
                         </div>
                     </div>
@@ -198,6 +199,12 @@
                 if (viewSchemaBtn && !viewSchemaBtn.dataset.bound) {
                     viewSchemaBtn.addEventListener('click', () => this.showSchema());
                     viewSchemaBtn.dataset.bound = 'true';
+                }
+
+                const connectVsCodeBtn = document.getElementById('connectVsCodeBtn');
+                if (connectVsCodeBtn && !connectVsCodeBtn.dataset.bound) {
+                    connectVsCodeBtn.addEventListener('click', () => this.openInVsCode());
+                    connectVsCodeBtn.dataset.bound = 'true';
                 }
             },
 
@@ -1241,6 +1248,84 @@
                         </div>
                     `;
                 }
+            },
+
+            getVsCodeServer() {
+                const candidate = this.normalizeSqlServer(this.settings?.server);
+                if (candidate) {
+                    return candidate;
+                }
+
+                const host = window.location.hostname || 'localhost';
+                return `${host},1433`;
+            },
+
+            normalizeSqlServer(value) {
+                if (!value) {
+                    return '';
+                }
+
+                const trimmed = value.trim();
+                if (!trimmed) {
+                    return '';
+                }
+
+                const withoutPrefix = trimmed.startsWith('tcp:') ? trimmed.slice(4) : trimmed;
+                if (withoutPrefix.includes(',')) {
+                    return withoutPrefix;
+                }
+
+                if (withoutPrefix.includes(':') && !withoutPrefix.includes(']')) {
+                    const index = withoutPrefix.lastIndexOf(':');
+                    if (index > -1) {
+                        const host = withoutPrefix.slice(0, index);
+                        const port = withoutPrefix.slice(index + 1);
+                        if (port) {
+                            return `${host},${port}`;
+                        }
+                    }
+                }
+
+                return withoutPrefix;
+            },
+
+            buildVsCodeQuery(values) {
+                return Object.entries(values)
+                    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+                    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+                    .join('&');
+            },
+
+            openInVsCode() {
+                const server = this.getVsCodeServer();
+                if (!server) {
+                    alert('Set a server name before opening VS Code.');
+                    return;
+                }
+
+                const database = (this.settings?.database || '').trim();
+                const user = (this.settings?.userId || '').trim();
+                const password = this.settings?.password ?? '';
+                const trust = this.settings?.trustServerCertificate !== false;
+
+                const profileParts = [server];
+                if (database) {
+                    profileParts.push(database);
+                }
+
+                const query = this.buildVsCodeQuery({
+                    server,
+                    database,
+                    user,
+                    password,
+                    trustServerCertificate: String(trust),
+                    authenticationType: 'SqlLogin',
+                    encrypt: 'Optional',
+                    profileName: `(${profileParts.join('/')})`
+                });
+
+                const url = `vscode://ms-mssql.mssql/connect?${query}`;
+                window.location.href = url;
             },
 
             zoomSchema(factor) {
