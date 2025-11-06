@@ -8,28 +8,39 @@
    ---------------------------------------------------------------------------- */
 
 :root {
-    /* Dark Theme Colors */
+    /* Dark Theme Colors - VS Code Palette */
     --bg-primary: #1e1e1e;
     --bg-secondary: #252526;
     --bg-tertiary: #2d2d30;
     --bg-hover: #2a2d2e;
-    --bg-selected: #094771;
-    --border-color: #3e3e42;
-    --text-primary: #d4d4d4;
+    --bg-selected: #37373d;
+    --bg-selected-focus: #094771;
+    --border-color: #3c3c3c;
+    --text-primary: #cccccc;
     --text-secondary: #858585;
+    --text-muted: #6a6a6a;
     --input-bg: #3c3c3c;
+    --input-border: #3c3c3c;
     --button-bg: #0e639c;
     --button-hover: #1177bb;
     --button-disabled: #464647;
-    --button-secondary: #464647;
-    --button-secondary-hover: #5a5a5c;
+    --button-secondary: #5a5d5e;
+    --button-secondary-hover: #3a3d41;
     --button-danger: #c72e0f;
     --button-danger-hover: #e03e12;
-    --accent-blue: #569cd6;
-    --accent-cyan: #9cdcfe;
+    --button-cancel: #d97706;
+    --button-cancel-hover: #ea8a0c;
+    --accent-blue: #007acc;
+    --accent-blue-light: #569cd6;
+    --accent-cyan: #4fc1ff;
+    --accent-yellow: #dcdcaa;
+    --accent-orange: #ce9178;
+    --accent-green: #4ec9b0;
     --accent-red: #f48771;
-    --error-bg: #3c1f1e;
-    --error-border: #5a1d1d;
+    --error-bg: #5a1d1d;
+    --error-border: #be1100;
+    --icon-folder: #dcb67a;
+    --icon-file: #858585;
 }
 
 body.light-theme {
@@ -68,11 +79,13 @@ body.light-theme {
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Ubuntu', 'Droid Sans', sans-serif;
+    font-size: 13px;
     background: var(--bg-primary);
     color: var(--text-primary);
     height: 100vh;
     overflow: hidden;
+    line-height: 1.4;
 }
 
 /* ----------------------------------------------------------------------------
@@ -106,15 +119,24 @@ body {
 }
 
 .pane-header {
-    padding: 8px 12px;
-    background: var(--bg-tertiary);
+    padding: 0 12px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
 }
 
 .filter-box {
     padding: 8px;
+    background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     position: relative;
     display: flex;
@@ -125,16 +147,22 @@ body {
 .filter-box input {
     flex: 1;
     background: var(--input-bg);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--input-border);
     color: var(--text-primary);
-    padding: 6px 8px;
+    padding: 4px 8px;
     font-size: 13px;
     border-radius: 2px;
+    transition: border-color 0.2s;
 }
 
 .filter-box input:focus {
-    outline: none;
+    outline: 1px solid var(--accent-blue);
+    outline-offset: -1px;
     border-color: var(--accent-blue);
+}
+
+.filter-box input::placeholder {
+    color: var(--text-muted);
 }
 
 #clearFilterBtn {
@@ -153,21 +181,22 @@ body {
 }
 
 /* ----------------------------------------------------------------------------
-   Tree View - Database Objects
+   Tree View - Database Objects (VS Code Style)
    ---------------------------------------------------------------------------- */
 
 .tree-container {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px;
+    padding: 4px 0;
 }
 
 .tree-node {
-    padding: 4px 8px;
+    padding: 0 8px;
     cursor: pointer;
     user-select: none;
     font-size: 13px;
+    line-height: 22px;
 }
 
 .tree-node:hover {
@@ -176,6 +205,11 @@ body {
 
 .tree-node.selected > .tree-label {
     background: var(--bg-selected);
+}
+
+.tree-node.selected:focus > .tree-label,
+.tree-node.selected:hover > .tree-label {
+    background: var(--bg-selected-focus);
 }
 
 .tree-node.collapsed > .tree-children {
@@ -190,36 +224,62 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    padding: 0 4px;
+    border-radius: 2px;
 }
 
 .tree-icon {
     width: 16px;
     min-width: 16px;
-    text-align: center;
-    font-size: 10px;
-    font-family: monospace;
-    display: inline-block;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-style: normal;
+    transition: transform 0.1s ease;
+}
+
+.tree-icon.chevron {
+    color: var(--text-secondary);
+    font-weight: bold;
+}
+
+.tree-node.expanded > .tree-label > .tree-icon.chevron {
+    transform: rotate(90deg);
 }
 
 .tree-children {
-    margin-left: 10px;
+    margin-left: 16px;
 }
 
 .column-item,
 .param-item {
-    padding: 4px 8px;
-    font-size: 12px;
+    padding: 0 8px 0 16px;
+    font-size: 13px;
+    line-height: 22px;
     white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+}
+
+.column-item:hover,
+.param-item:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .column-item .type-info,
 .param-item .type-info {
-    color: var(--text-secondary);
-    opacity: 0.5;
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-left: auto;
 }
 
 /* ----------------------------------------------------------------------------
-   Object Action Buttons
+   Object Action Buttons (VS Code Style)
    ---------------------------------------------------------------------------- */
 
 .object-actions {
@@ -227,7 +287,7 @@ body {
     gap: 4px;
     margin-left: auto;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.1s;
 }
 
 .tree-node:hover > .tree-label > .object-actions,
@@ -236,19 +296,24 @@ body {
 }
 
 .object-actions button {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    background: var(--button-secondary);
+    border: 1px solid transparent;
     color: var(--text-primary);
     padding: 2px 6px;
-    font-size: 10px;
+    font-size: 11px;
     cursor: pointer;
     border-radius: 2px;
+    line-height: 1.2;
+    transition: background 0.1s;
     white-space: nowrap;
 }
 
 .object-actions button:hover {
-    background: var(--bg-hover);
-    border-color: var(--accent-blue);
+    background: var(--button-secondary-hover);
+}
+
+.object-actions button:active {
+    background: var(--bg-selected);
 }
 
 .schema-download {
@@ -257,54 +322,93 @@ body {
     display: flex;
     flex-direction: row;
     gap: 8px;
+    justify-content: flex-start;
 }
 
 .schema-download button {
-    flex: 1;
-    background: var(--button-bg);
-    border: none;
+    background: var(--accent-blue);
+    border: 1px solid transparent;
     color: white;
-    padding: 8px;
+    padding: 5px 12px;
     font-size: 13px;
     cursor: pointer;
     border-radius: 2px;
     white-space: nowrap;
+    text-align: center;
+    transition: background 0.1s;
+    flex: 1;
 }
 
 .schema-download button:hover {
     background: var(--button-hover);
 }
 
+.schema-download button:active {
+    background: var(--accent-blue);
+    filter: brightness(0.9);
+}
+
+.schema-download button:disabled {
+    background: var(--button-disabled);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 /* ----------------------------------------------------------------------------
-   Resizers - Splitter Controls
+   Resizers - Splitter Controls (VS Code Style)
    ---------------------------------------------------------------------------- */
 
 .vertical-resizer {
     width: 4px;
-    background: var(--border-color);
+    background: transparent;
     cursor: col-resize;
     flex-shrink: 0;
     touch-action: none;
     user-select: none;
-    transition: background 0.2s;
+    position: relative;
 }
 
-.vertical-resizer:hover {
+.vertical-resizer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1px;
+    height: 100%;
+    background: var(--border-color);
+}
+
+.vertical-resizer:hover::after {
     background: var(--accent-blue);
+    width: 2px;
 }
 
 .horizontal-resizer {
     height: 4px;
-    background: var(--border-color);
+    background: transparent;
     cursor: row-resize;
     flex-shrink: 0;
     touch-action: none;
     user-select: none;
-    transition: background 0.2s;
+    position: relative;
 }
 
-.horizontal-resizer:hover {
+.horizontal-resizer::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 1px;
+    width: 100%;
+    background: var(--border-color);
+}
+
+.horizontal-resizer:hover::after {
     background: var(--accent-blue);
+    height: 2px;
 }
 
 /* ----------------------------------------------------------------------------
@@ -327,64 +431,93 @@ body {
 }
 
 .editor-toolbar {
-    padding: 8px;
-    background: var(--bg-tertiary);
+    padding: 4px 8px;
+    background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     gap: 8px;
     align-items: center;
     justify-content: space-between;
+    min-height: 35px;
 }
 
 .toolbar-left {
     display: flex;
-    gap: 8px;
+    gap: 4px;
+    align-items: center;
 }
 
 .toolbar-right {
     display: flex;
-    gap: 8px;
+    gap: 4px;
+    align-items: center;
 }
 
 .editor-toolbar button {
-    background: var(--button-bg);
-    border: none;
-    color: white;
-    padding: 6px 12px;
+    background: var(--button-secondary);
+    border: 1px solid transparent;
+    color: var(--text-primary);
+    padding: 4px 12px;
     font-size: 13px;
     cursor: pointer;
     border-radius: 2px;
+    transition: background 0.1s;
+    line-height: 1.4;
 }
 
 .editor-toolbar button.execute {
-    background: #0e7d0e;
+    background: var(--accent-blue);
+    color: white;
 }
 
-.editor-toolbar button.execute:hover {
-    background: #0f9d0f;
+.editor-toolbar button.execute:hover:not(:disabled) {
+    background: var(--button-hover);
+}
+
+.editor-toolbar button.execute:disabled {
+    background: var(--button-disabled);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.editor-toolbar button.cancel {
+    background: var(--button-cancel);
+    color: white;
+}
+
+.editor-toolbar button.cancel:hover:not(:disabled) {
+    background: var(--button-cancel-hover);
+}
+
+.editor-toolbar button.cancel:disabled {
+    background: var(--button-disabled);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .editor-toolbar button:hover {
-    background: var(--button-hover);
+    background: var(--button-secondary-hover);
 }
 
 .editor-toolbar button.vscode-link {
     background: transparent;
     color: var(--accent-blue);
     border: 1px solid transparent;
-    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
 
 .editor-toolbar button.vscode-link:hover,
 .editor-toolbar button.vscode-link:focus {
-    background: rgba(86, 156, 214, 0.15);
-    color: var(--accent-blue);
+    background: rgba(14, 99, 156, 0.1);
     border-color: var(--accent-blue);
 }
 
 .editor-toolbar button:disabled {
     background: var(--button-disabled);
     cursor: not-allowed;
+    opacity: 0.5;
 }
 
 .editor {
@@ -406,9 +539,8 @@ body {
     flex: 2 1 67%;
     min-height: 150px;
     overflow: auto;
-    padding: 12px;
+    padding: 16px;
     background: var(--bg-primary);
-    border-top: 3px solid var(--accent-blue);
 }
 
 .result-set {
@@ -417,29 +549,38 @@ body {
 
 .result-set h3 {
     font-size: 13px;
-    margin-bottom: 8px;
-    color: var(--accent-blue);
+    margin-bottom: 12px;
+    color: var(--text-primary);
+    font-weight: 600;
 }
 
 .result-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
 }
 
 .result-table th {
     background: var(--bg-tertiary);
-    padding: 8px;
+    padding: 6px 12px;
     text-align: left;
     border: 1px solid var(--border-color);
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
+    color: var(--text-primary);
+    font-size: 12px;
 }
 
 .result-table td {
-    padding: 8px;
+    padding: 4px 12px;
     border: 1px solid var(--border-color);
     white-space: nowrap;
+    color: var(--text-primary);
+}
+
+.result-table tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .result-table tr:hover {
@@ -447,61 +588,109 @@ body {
 }
 
 /* ----------------------------------------------------------------------------
-   Status Bar
+   Status Bar (VS Code Style)
    ---------------------------------------------------------------------------- */
 
 .status-bar {
-    background: var(--button-bg);
-    color: white;
-    padding: 6px 12px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 0;
     font-size: 12px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: stretch;
+    border-top: 1px solid var(--border-color);
+    height: 22px;
 }
 
 .status-left,
 .status-right {
     display: flex;
-    gap: 16px;
+    align-items: center;
+}
+
+.status-bar > div > span {
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    border-right: 1px solid var(--border-color);
+}
+
+.status-bar > div > span:hover {
+    background: var(--bg-hover);
 }
 
 .status-label {
-    color: #cccccc;
-    font-weight: 500;
+    color: var(--text-secondary);
+    margin-right: 4px;
 }
 
 .status-value {
-    color: #ffffff;
+    color: var(--text-primary);
 }
 
 #statusConnection {
-    font-weight: 600;
+    font-weight: 500;
 }
 
 /* Connection status color indicators */
 #statusConnection::before {
-    content: '● ';
-    margin-right: 4px;
+    content: '●';
+    margin-right: 6px;
+    font-size: 10px;
 }
 
-/* Default/Disconnected state - yellow/amber */
+/* Default/Disconnected state */
 body #statusConnection {
-    color: #ffa500;
+    color: var(--text-secondary);
 }
 
-/* Connected state - green */
+body #statusConnection::before {
+    color: var(--text-secondary);
+}
+
+/* Connected state */
 body #statusConnection.connected {
-    color: #4ec9b0;
+    color: var(--text-primary);
 }
 
-/* Failed state - red */
+body #statusConnection.connected::before {
+    color: var(--accent-green);
+}
+
+/* Connecting state */
+body #statusConnection.connecting {
+    color: var(--accent-blue-light);
+}
+
+body #statusConnection.connecting::before {
+    color: var(--accent-blue);
+    animation: pulse-dot 1.2s ease-in-out infinite;
+}
+
+/* Failed state */
 body #statusConnection.failed {
-    color: #f48771;
+    color: var(--accent-red);
+}
+
+body #statusConnection.failed::before {
+    color: var(--accent-red);
+}
+
+@keyframes pulse-dot {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(0.75);
+        opacity: 0.6;
+    }
 }
 
 /* ----------------------------------------------------------------------------
-   Modal Dialogs
+   Modal Dialogs (VS Code Style)
    ---------------------------------------------------------------------------- */
 
 .modal {
@@ -511,7 +700,7 @@ body #statusConnection.failed {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.6);
     z-index: 1000;
     align-items: center;
     justify-content: center;
@@ -522,13 +711,13 @@ body #statusConnection.failed {
 }
 
 .modal-content {
-    background: var(--bg-secondary);
-    padding: 24px;
-    border-radius: 4px;
+    background: var(--bg-tertiary);
+    padding: 20px;
+    border-radius: 0;
     max-width: 500px;
     width: 90%;
     border: 1px solid var(--border-color);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
 }
 
 .modal-content.schema-modal {
@@ -540,20 +729,21 @@ body #statusConnection.failed {
 }
 
 .modal-header {
-    font-size: 16px;
-    margin-bottom: 16px;
-    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 20px;
+    font-weight: 600;
     color: var(--text-primary);
 }
 
 .modal-header button {
     background: var(--button-secondary);
-    border: 1px solid var(--border-color);
+    border: 1px solid transparent;
     color: var(--text-primary);
     padding: 4px 8px;
     font-size: 12px;
     cursor: pointer;
     border-radius: 2px;
+    transition: background 0.1s;
 }
 
 .modal-header button:hover {
@@ -589,7 +779,7 @@ body #statusConnection.failed {
 }
 
 /* ----------------------------------------------------------------------------
-   Form Controls
+   Form Controls (VS Code Style)
    ---------------------------------------------------------------------------- */
 
 .form-group {
@@ -598,30 +788,45 @@ body #statusConnection.failed {
 
 .form-group label {
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     font-size: 13px;
     color: var(--text-primary);
+    font-weight: 500;
 }
 
 .form-group input {
     width: 100%;
     background: var(--input-bg);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--input-border);
     color: var(--text-primary);
-    padding: 8px;
+    padding: 6px 8px;
     font-size: 13px;
     border-radius: 2px;
+    transition: border-color 0.1s;
 }
 
 .form-group input:focus {
-    outline: none;
+    outline: 1px solid var(--accent-blue);
+    outline-offset: -1px;
     border-color: var(--accent-blue);
+}
+
+.form-group input::placeholder {
+    color: var(--text-muted);
 }
 
 .form-group select {
     background: var(--input-bg);
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--input-border);
+    padding: 6px 8px;
+    font-size: 13px;
+    border-radius: 2px;
+}
+
+.form-group select:focus {
+    outline: 1px solid var(--accent-blue);
+    outline-offset: -1px;
 }
 
 .password-wrapper {
@@ -650,7 +855,7 @@ body #statusConnection.failed {
 }
 
 /* ----------------------------------------------------------------------------
-   Modal Actions & Buttons
+   Modal Actions & Buttons (VS Code Style)
    ---------------------------------------------------------------------------- */
 
 .modal-actions {
@@ -667,21 +872,32 @@ body #statusConnection.failed {
 }
 
 .modal-actions button {
-    background: var(--button-bg);
-    border: none;
+    background: var(--accent-blue);
+    border: 1px solid transparent;
     color: white;
-    padding: 8px 16px;
+    padding: 6px 14px;
     font-size: 13px;
     cursor: pointer;
     border-radius: 2px;
+    transition: background 0.1s;
 }
 
 .modal-actions button:hover {
     background: var(--button-hover);
 }
 
+.modal-actions button.primary {
+    background: var(--accent-blue);
+    color: white;
+}
+
+.modal-actions button.primary:hover {
+    background: var(--button-hover);
+}
+
 .modal-actions button.secondary {
     background: var(--button-secondary);
+    color: var(--text-primary);
 }
 
 .modal-actions button.secondary:hover {
@@ -690,6 +906,7 @@ body #statusConnection.failed {
 
 .modal-actions button.danger {
     background: var(--button-danger);
+    color: white;
 }
 
 .modal-actions button.danger:hover {
@@ -738,6 +955,128 @@ body #statusConnection.failed {
     margin: 12px;
 }
 
+.connection-message,
+.connection-error {
+    margin: 12px;
+    padding: 16px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    text-align: left;
+    line-height: 1.5;
+}
+
+.connection-message__title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.connection-message__subtitle {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.connection-message__target {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.connection-error {
+    border-color: var(--error-border);
+    background: var(--error-bg);
+    color: var(--text-primary);
+}
+
+.connection-error__title {
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.connection-error__message {
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.connection-error__note {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.connection-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.connection-actions button {
+    background: var(--button-secondary);
+    color: var(--text-primary);
+    border: 1px solid transparent;
+    padding: 6px 12px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.1s ease;
+}
+
+.connection-actions button:hover {
+    background: var(--button-secondary-hover);
+}
+
+.connection-actions button.primary {
+    background: var(--accent-blue);
+    color: #ffffff;
+}
+
+.connection-actions button.primary:hover {
+    background: var(--button-hover);
+}
+
+.connection-actions button.secondary {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.connection-actions button.secondary:hover {
+    color: var(--text-primary);
+    border-color: var(--button-secondary-hover);
+    background: var(--bg-hover);
+}
+
+.error-block {
+    margin: 16px;
+    padding: 16px;
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+}
+
+.error-block__title {
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.error-block__message {
+    color: var(--accent-red);
+    margin-bottom: 10px;
+}
+
+.error-block pre {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    border-radius: 2px;
+    white-space: pre-wrap;
+    max-height: 260px;
+    overflow: auto;
+    font-size: 12px;
+}
+
 /* ----------------------------------------------------------------------------
    Info Messages
    ---------------------------------------------------------------------------- */
@@ -761,4 +1100,52 @@ body #statusConnection.failed {
 .info-messages > div:not(:first-child) {
     margin-bottom: 4px;
     color: var(--text-primary);
+}
+
+/* ----------------------------------------------------------------------------
+   Scrollbars (VS Code Style)
+   ---------------------------------------------------------------------------- */
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: #424242;
+    border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #4e4e4e;
+}
+
+::-webkit-scrollbar-corner {
+    background: var(--bg-primary);
+}
+
+/* Firefox scrollbar styling */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #424242 var(--bg-primary);
+}
+
+/* ----------------------------------------------------------------------------
+   Utility Classes
+   ---------------------------------------------------------------------------- */
+
+.monospace {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.text-secondary {
+    color: var(--text-secondary);
 }

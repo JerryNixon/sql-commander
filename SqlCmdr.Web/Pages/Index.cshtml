@@ -11,23 +11,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@title</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.css">
-    <link rel="stylesheet" href="~/css/site.css" />
-    <link rel="stylesheet" href="~/css/sqlcmdr.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/sqlcmdr.css" asp-append-version="true" />
 </head>
 <body>
     <div class="container">
         <div class="main-content">
             <div class="left-pane">
+                <div class="pane-header">Schema Explorer</div>
                 <div class="filter-box">
-                    <input type="text" id="filterInput" placeholder="Filter objects..." oninput="app.filterTree(this.value)">
+                    <input type="text" id="filterInput" placeholder="Search..." oninput="app.filterTree(this.value)">
                     <button id="clearFilterBtn" onclick="app.clearFilter()" title="Clear filter" style="display: none;">✕</button>
                 </div>
                 <div class="tree-container" id="treeContainer">
                     <div class="loading">Loading metadata...</div>
                 </div>
                 <div class="schema-download">
-                    <button id="refreshMetadataBtn" type="button">Refresh Metadata</button>
+                    <button id="refreshMetadataBtn" type="button">Refresh</button>
                     <button id="viewSchemaBtn" type="button">View Schema</button>
+                    <button id="connectVsCodeBtn" type="button" title="Open this connection in VS Code">VS Code</button>
                 </div>
             </div>
 
@@ -37,11 +39,10 @@
                 <div class="editor-container">
                     <div class="editor-toolbar">
                         <div class="toolbar-left">
-                            <button id="executeBtn" class="execute" onclick="app.executeQuery()" title="Execute (Ctrl+E)">▶ Execute</button>
-                            <button id="cancelBtn" onclick="app.cancelQuery()" style="display: none;">⬛ Cancel</button>
+                            <button id="executeBtn" class="execute" onclick="app.executeQuery()" title="Execute Query (Ctrl+E)">▶ Execute</button>
+                            <button id="cancelBtn" class="cancel" onclick="app.cancelQuery()" style="display: none;">Cancel</button>
                         </div>
                         <div class="toolbar-right">
-                            <button id="connectVsCodeBtn" type="button" class="vscode-link" title="Open connection dialog in VS Code">Open in VS Code</button>
                             <button onclick="app.showSettings()">Settings</button>
                         </div>
                     </div>
@@ -167,6 +168,7 @@
         const app = {
             metadata: null,
             queryRunning: false,
+            queryCancelled: false,
             startTime: null,
             timerInterval: null,
             settings: null,
@@ -178,12 +180,16 @@
             isPanning: false,
             panStart: { x: 0, y: 0 },
             scrollStart: { x: 0, y: 0 },
+            maxMetadataAttempts: 3,
+            metadataAttemptDelay: 1500,
+            metadataLoading: false,
+            lastMetadataError: null,
 
             async init() {
                 await this.loadSettings();
                 this.initEditor();
                 this.bindUiActions();
-                await this.loadMetadata();
+                await this.loadMetadata({ maxAttempts: this.maxMetadataAttempts });
                 this.setupKeyboardShortcuts();
                 this.setupResizers();
             },
@@ -206,6 +212,49 @@
                     connectVsCodeBtn.addEventListener('click', () => this.openInVsCode());
                     connectVsCodeBtn.dataset.bound = 'true';
                 }
+            },
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            },
+
+            getConnectionTarget() {
+                const server = (this.settings?.server || '').trim();
+                const database = (this.settings?.database || '').trim();
+
+                if (server && database) {
+                    return `${server} / ${database}`;
+                }
+
+                if (server) {
+                    return server;
+                }
+
+                if (database) {
+                    return database;
+                }
+
+                return '';
+            },
+
+            setConnectionStatus(state, { label, title } = {}) {
+                const statusElement = document.getElementById('statusConnection');
+                if (!statusElement) {
+                    return;
+                }
+
+                const baseClass = 'status-value';
+                statusElement.className = state ? `${baseClass} ${state}` : baseClass;
+
+                const defaultLabels = {
+                    connecting: 'Connecting...',
+                    connected: 'Connected',
+                    failed: 'Failed',
+                    disconnected: 'Disconnected'
+                };
+
+                statusElement.textContent = label || defaultLabels[state] || 'Status';
+                statusElement.title = title || '';
             },
 
             getMermaidConfig() {
@@ -267,12 +316,28 @@
             },
 
             async loadSettings() {
-                const response = await fetch('?handler=Settings');
-                const settings = await response.json();
-                this.settings = settings;
+                try {
+                    const response = await fetch('?handler=Settings');
+                    if (!response.ok) {
+                        const text = await response.text();
+                        throw new Error(`Failed to load settings. HTTP ${response.status} ${response.statusText}\n${text}`);
+                    }
+
+                    const settings = await response.json();
+                    this.settings = settings;
+                } catch (error) {
+                    console.error('Load settings error:', error);
+                    this.settings = {
+                        theme: 'dark',
+                        server: '',
+                        database: '',
+                        userId: ''
+                    };
+                    this.lastMetadataError = error;
+                }
                 
                 // Apply theme
-                const theme = settings.theme || 'dark';
+                const theme = this.settings.theme || 'dark';
                 if (theme === 'light') {
                     document.body.classList.add('light-theme');
                 } else {
@@ -281,59 +346,214 @@
                 
                 // Only update status bar info, but don't mark as connected yet
                 // Connection status will be updated after successful metadata load
-                if (settings.server) {
-                    document.getElementById('statusDatabase').textContent = settings.database;
-                    document.getElementById('statusUser').textContent = settings.userId;
-                    document.title = `sql cmdr: ${settings.server}/${settings.database}`;
+                document.getElementById('statusDatabase').textContent = this.settings.database || 'N/A';
+                document.getElementById('statusUser').textContent = this.settings.userId || 'N/A';
+                if (this.settings.server) {
+                    document.title = `sql cmdr: ${this.settings.server}/${this.settings.database}`;
                 }
             },
 
-            async loadMetadata() {
+            async loadMetadata({ maxAttempts } = {}) {
+                if (this.metadataLoading) {
+                    return false;
+                }
+
                 const container = document.getElementById('treeContainer');
                 const refreshBtn = document.getElementById('refreshMetadataBtn');
-                const statusElement = document.getElementById('statusConnection');
-                
-                // Show loading state
-                container.innerHTML = '<div class="loading">⏳ Loading metadata...</div>';
+                const resultsContainer = document.getElementById('resultsContainer');
+
+                const attempts = Math.max(1, maxAttempts ?? this.maxMetadataAttempts);
+                this.metadataLoading = true;
+                this.lastMetadataError = null;
+
                 if (refreshBtn) {
                     refreshBtn.disabled = true;
                     refreshBtn.textContent = 'Loading...';
                 }
 
-                try {
-                    console.log('Fetching metadata...');
-                    const response = await fetch('?handler=Metadata');
-                    console.log('Response received:', response.status);
-                    const result = await response.json();
-                    console.log('Result parsed:', result);
+                let metadataLoaded = false;
+                let lastResult = null;
 
-                    if (!result.success) {
-                        container.innerHTML = `<div class="error">${result.error}</div>`;
-                        statusElement.textContent = 'Failed';
-                        statusElement.className = 'status-value failed';
-                        return;
+                try {
+                    for (let attempt = 1; attempt <= attempts; attempt++) {
+                        this.showMetadataProgress(attempt, attempts);
+
+                        const result = await this.fetchMetadataOnce();
+
+                        if (result.success) {
+                            metadataLoaded = true;
+                            this.metadata = result.data;
+                            break;
+                        }
+
+                        lastResult = result;
+                        this.lastMetadataError = result;
+
+                        if (attempt < attempts) {
+                            await this.delay(this.metadataAttemptDelay);
+                        }
                     }
 
-                    this.metadata = result.data;
-                    console.log('Metadata loaded, rendering tree...');
-                    this.renderTree();
-                    console.log('Tree rendered');
-                    
-                    // Update connection status to connected after successful metadata load
-                    statusElement.textContent = 'Connected';
-                    statusElement.className = 'status-value connected';
-                } catch (error) {
-                    console.error('Error loading metadata:', error);
-                    container.innerHTML = `<div class="error">Failed to load metadata: ${error.message}</div>`;
-                    statusElement.textContent = 'Failed';
-                    statusElement.className = 'status-value failed';
+                    if (metadataLoaded) {
+                        this.renderTree();
+                        const targetText = this.getConnectionTarget();
+                        const title = targetText ? `Connected to ${targetText}` : 'Connected to database';
+                        this.setConnectionStatus('connected', { title });
+                        if (resultsContainer && resultsContainer.querySelector('.error-block')) {
+                            resultsContainer.innerHTML = '<div style="color: var(--text-secondary); font-size: 13px;">No results to display.</div>';
+                        }
+                        return true;
+                    }
+
+                    this.metadata = null;
+                    this.showMetadataFailure(lastResult, attempts);
+                    const failureDetail = typeof lastResult?.message === 'string'
+                        ? lastResult.message.replace(/\s+/g, ' ').trim()
+                        : '';
+                    const failureTitle = failureDetail ? `Last error: ${failureDetail}` : 'Failed to connect to database';
+                    this.setConnectionStatus('failed', { title: failureTitle });
+
+                    if (resultsContainer) {
+                        resultsContainer.innerHTML = this.buildErrorBlockHtml(lastResult);
+                    }
+                    document.getElementById('statusQuery').textContent = 'Idle';
+                    document.getElementById('statusTime').textContent = '';
+                    document.getElementById('statusRows').textContent = '';
+
+                    return false;
                 } finally {
-                    // Restore button state
                     if (refreshBtn) {
                         refreshBtn.disabled = false;
-                        refreshBtn.textContent = 'Refresh Metadata';
+                        refreshBtn.textContent = 'Refresh';
                     }
+                    this.metadataLoading = false;
                 }
+            },
+
+            async fetchMetadataOnce() {
+                try {
+                    const response = await fetch('?handler=Metadata');
+                    const text = await response.text();
+                    let payload = null;
+
+                    if (text) {
+                        try {
+                            payload = JSON.parse(text);
+                        } catch (parseError) {
+                            payload = null;
+                        }
+                    }
+
+                    if (!response.ok) {
+                        return {
+                            success: false,
+                            message: `Metadata endpoint returned HTTP ${response.status} ${response.statusText}`,
+                            details: text || '(empty response)',
+                            status: response.status,
+                            statusText: response.statusText
+                        };
+                    }
+
+                    if (!payload || typeof payload !== 'object') {
+                        return {
+                            success: false,
+                            message: 'Unexpected response while loading metadata.',
+                            details: text || '(empty response)'
+                        };
+                    }
+
+                    if (!payload.success) {
+                        return {
+                            success: false,
+                            message: payload.error || 'Server reported failure while loading metadata.',
+                            details: JSON.stringify(payload, null, 2)
+                        };
+                    }
+
+                    if (!payload.data) {
+                        return {
+                            success: false,
+                            message: 'Metadata response did not include any data.',
+                            details: JSON.stringify(payload, null, 2)
+                        };
+                    }
+
+                    return { success: true, data: payload.data };
+                } catch (error) {
+                    return {
+                        success: false,
+                        message: error instanceof Error ? error.message : String(error),
+                        details: error instanceof Error && error.stack ? error.stack : String(error)
+                    };
+                }
+            },
+
+            showMetadataProgress(attempt, totalAttempts) {
+                const container = document.getElementById('treeContainer');
+                if (!container) return;
+
+                const targetText = this.getConnectionTarget();
+                const label = totalAttempts > 1 ? `Connecting (${attempt}/${totalAttempts})` : 'Connecting...';
+                const attemptSummary = totalAttempts > 1 ? `Attempt ${attempt} of ${totalAttempts}` : 'Attempting connection';
+                const title = targetText ? `${attemptSummary} — ${targetText}` : attemptSummary;
+                this.setConnectionStatus('connecting', { label, title });
+
+                const attemptText = `Attempt ${attempt} of ${totalAttempts}`;
+                const server = this.settings?.server ? this.escapeHtml(this.settings.server) : null;
+                const database = this.settings?.database ? this.escapeHtml(this.settings.database) : null;
+                const target = server ? `
+                        <div class="connection-message__target">Target: ${server}${database ? ` / ${database}` : ''}</div>` : '';
+                container.innerHTML = `
+                    <div class="connection-message">
+                        <div class="connection-message__title">Connecting to database…</div>
+                        <div class="connection-message__subtitle">${attemptText}</div>
+                        ${target}
+                    </div>`;
+            },
+
+            showMetadataFailure(result, attempts) {
+                const container = document.getElementById('treeContainer');
+                if (!container) return;
+
+                const attemptText = attempts === 1 ? '1 attempt' : `${attempts} attempts`;
+                const message = result?.message ? this.escapeHtml(result.message) : 'Unknown error while connecting to the database.';
+
+                container.innerHTML = `
+                    <div class="connection-error">
+                        <div class="connection-error__title">Unable to connect to the database after ${attemptText}.</div>
+                        <div class="connection-error__message">${message}</div>
+                        <div class="connection-error__note">See the results pane for full error details.</div>
+                        <div class="connection-actions">
+                            <button type="button" class="primary" onclick="app.retryMetadata()">Retry</button>
+                            <button type="button" class="secondary" onclick="app.showSettings()">Open Settings</button>
+                        </div>
+                    </div>`;
+            },
+
+            buildErrorBlockHtml(result) {
+                const message = result?.message ? this.escapeHtml(result.message) : 'Unknown error while connecting to the database.';
+                const details = result?.details ? this.escapeHtml(result.details) : 'No additional details were provided.';
+
+                return `
+                    <div class="error-block">
+                        <div class="error-block__title">Database connection failed</div>
+                        <div class="error-block__message">${message}</div>
+                        <pre>${details}</pre>
+                    </div>`;
+            },
+
+            escapeHtml(value) {
+                if (value == null) return '';
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            },
+
+            async retryMetadata() {
+                await this.loadMetadata({ maxAttempts: this.maxMetadataAttempts });
             },
 
             renderTree() {
@@ -363,12 +583,11 @@
             renderCategory(title, items, type) {
                 const isTablesCategory = title === 'Tables';
                 const categoryClass = isTablesCategory ? 'expanded' : 'collapsed';
-                const categoryIcon = isTablesCategory ? 'v' : '>';
                 
                 let html = `<div class="tree-node ${categoryClass}" data-type="category">
                     <div class="tree-label" onclick="app.selectTreeNode(event)">
-                        <span class="tree-icon" onclick="app.toggleNode(event)">${categoryIcon}</span>
-                        <strong>${title}</strong> (${items.length})
+                        <span class="tree-icon chevron" onclick="app.toggleNode(event)">❯</span>
+                        <strong>${title}</strong> <span style="color: var(--text-muted);">(${items.length})</span>
                     </div>
                     <div class="tree-children">`;
 
@@ -383,30 +602,31 @@
                     const schemaCount = bySchema[schema].length;
                     html += `<div class="tree-node collapsed" data-type="schema">
                         <div class="tree-label" onclick="app.selectTreeNode(event)">
-                            <span class="tree-icon" onclick="app.toggleNode(event)">></span>
-                            <span>${schema} (${schemaCount})</span>
+                            <span class="tree-icon chevron" onclick="app.toggleNode(event)">❯</span>
+                            <span>${schema}</span> <span style="color: var(--text-muted);">(${schemaCount})</span>
                         </div>
                         <div class="tree-children">`;
 
                     bySchema[schema].sort((a, b) => a.name.localeCompare(b.name)).forEach(item => {
                         const fullName = `[${item.schema}].[${item.name}]`;
                         const itemJson = JSON.stringify(item).replace(/"/g, '&quot;');
+                        
                         html += `<div class="tree-node collapsed" data-type="${type}" data-fullname="${fullName}" data-item='${itemJson}'>
                             <div class="tree-label" onclick="app.selectTreeNode(event)">
-                                <span class="tree-icon" onclick="app.toggleNode(event)">></span>
+                                <span class="tree-icon chevron" onclick="app.toggleNode(event)">❯</span>
                                 <span>${item.name}</span>
                                 <span class="object-actions">`;
                         
                         if (type === 'proc') {
-                            html += `<button onclick="app.insertExecute('${fullName}', event)">EXECUTE</button>`;
+                            html += `<button onclick="app.insertExecute('${fullName}', event)" title="Insert EXECUTE statement">EXEC</button>`;
                         } else {
-                            html += `<button onclick="app.insertSelect('${fullName}', event)">SELECT</button>`;
-                            html += `<button onclick="app.insertInsert('${fullName}', event)">INSERT</button>`;
-                            html += `<button onclick="app.insertUpdate('${fullName}', event)">UPDATE</button>`;
-                            html += `<button onclick="app.insertDelete('${fullName}', event)">DELETE</button>`;
+                            html += `<button onclick="app.insertSelect('${fullName}', event)" title="Insert SELECT statement">SELECT</button>`;
+                            html += `<button onclick="app.insertInsert('${fullName}', event)" title="Insert INSERT statement">INSERT</button>`;
+                            html += `<button onclick="app.insertUpdate('${fullName}', event)" title="Insert UPDATE statement">UPDATE</button>`;
+                            html += `<button onclick="app.insertDelete('${fullName}', event)" title="Insert DELETE statement">DELETE</button>`;
                         }
-                        html += `<button onclick="app.insertCreate('${fullName}', '${type}', event)">CREATE</button>
-                                <button onclick="app.insertDrop('${fullName}', '${type}', event)">DROP</button>
+                        html += `<button onclick="app.insertCreate('${fullName}', '${type}', event)" title="Insert CREATE statement">CREATE</button>
+                                <button onclick="app.insertDrop('${fullName}', '${type}', event)" title="Insert DROP statement">DROP</button>
                                 </span>
                             </div>
                             <div class="tree-children">`;
@@ -415,23 +635,32 @@
                         if (item.columns && item.columns.length > 0) {
                             item.columns.forEach(col => {
                                 const nullable = col.isNullable ? 'NULL' : 'NOT NULL';
-                                html += `<div class="column-item">${col.name} <span class="type-info">${col.displayType} ${nullable}</span></div>`;
+                                html += `<div class="column-item">
+                                    <span>${col.name}</span>
+                                    <span class="type-info">${col.displayType} ${nullable}</span>
+                                </div>`;
                             });
                         }
 
                         // Parameters (for stored procedures)
                         if (item.parameters && item.parameters.length > 0) {
-                            html += '<div style="margin-top: 8px; font-weight: 500;">Parameters:</div>';
+                            html += '<div style="margin: 8px 0 4px 16px; font-weight: 600; font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Parameters</div>';
                             item.parameters.forEach(param => {
-                                html += `<div class="param-item">${param.name} <span class="type-info">${param.displayType} (${param.direction})</span></div>`;
+                                html += `<div class="param-item">
+                                    <span>${param.name}</span>
+                                    <span class="type-info">${param.displayType} (${param.direction})</span>
+                                </div>`;
                             });
                         }
 
                         // Output columns (for stored procedures)
                         if (item.outputColumns && item.outputColumns.length > 0) {
-                            html += '<div style="margin-top: 8px; font-weight: 500;">Output Columns:</div>';
+                            html += '<div style="margin: 8px 0 4px 16px; font-weight: 600; font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Output Columns</div>';
                             item.outputColumns.forEach(col => {
-                                html += `<div class="column-item">${col.name} <span class="type-info">${col.displayType}</span></div>`;
+                                html += `<div class="column-item">
+                                    <span>${col.name}</span>
+                                    <span class="type-info">${col.displayType}</span>
+                                </div>`;
                             });
                         }
 
@@ -449,10 +678,7 @@
                 if (!node) return;
                 node.classList.toggle('collapsed', !expand);
                 node.classList.toggle('expanded', expand);
-                const icon = node.querySelector('.tree-label .tree-icon');
-                if (icon) {
-                    icon.textContent = expand ? 'v' : '>';
-                }
+                // Don't change the chevron character - CSS rotation handles the visual change
             },
 
             toggleNode(event) {
@@ -794,10 +1020,18 @@
                 if (!sql) return;
 
                 this.queryRunning = true;
+                this.queryCancelled = false;
                 this.startTime = Date.now();
                 
-                document.getElementById('executeBtn').style.display = 'none';
-                document.getElementById('cancelBtn').style.display = 'inline-block';
+                const executeBtn = document.getElementById('executeBtn');
+                const cancelBtn = document.getElementById('cancelBtn');
+                
+                executeBtn.disabled = true;
+                executeBtn.style.display = 'inline-block';
+                cancelBtn.style.display = 'inline-block';
+                cancelBtn.disabled = false;
+                cancelBtn.textContent = 'Cancel';
+                
                 document.getElementById('statusQuery').textContent = 'Running...';
                 document.getElementById('statusTime').textContent = '';
                 document.getElementById('statusRows').textContent = '';
@@ -814,6 +1048,11 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ sql })
                     });
+
+                    // If query was cancelled, don't process results
+                    if (this.queryCancelled) {
+                        return;
+                    }
 
                     if (!response.ok) {
                         const contentType = response.headers.get('content-type');
@@ -852,21 +1091,68 @@
                         throw new Error(`Failed to parse server response as JSON.\n\nParse Error: ${parseError.message}\n\nResponse:\n${text.substring(0, 500)}`);
                     }
                     
-                    this.displayResults(result);
+                    // Only display results if not cancelled
+                    if (!this.queryCancelled) {
+                        this.displayResults(result);
+                    }
                 } catch (error) {
-                    console.error('Execute query error:', error);
-                    this.displayError(error.message);
+                    // Only display error if not cancelled
+                    if (!this.queryCancelled) {
+                        console.error('Execute query error:', error);
+                        this.displayError(error.message);
+                    }
                 } finally {
-                    this.queryRunning = false;
-                    clearInterval(this.timerInterval);
-                    document.getElementById('executeBtn').style.display = 'inline-block';
-                    document.getElementById('cancelBtn').style.display = 'none';
+                    // Only reset UI if query was not cancelled
+                    // (cancel handler already updated the UI)
+                    if (!this.queryCancelled) {
+                        this.queryRunning = false;
+                        clearInterval(this.timerInterval);
+                        executeBtn.disabled = false;
+                        cancelBtn.style.display = 'none';
+                    }
                 }
             },
 
             async cancelQuery() {
-                document.getElementById('statusQuery').textContent = 'Cancelling...';
-                await fetch('?handler=CancelQuery', { method: 'POST' });
+                if (!this.queryRunning) return;
+                
+                // Mark query as cancelled immediately
+                this.queryCancelled = true;
+                
+                // Stop the timer immediately
+                if (this.timerInterval) {
+                    clearInterval(this.timerInterval);
+                    this.timerInterval = null;
+                }
+                
+                // Calculate final elapsed time
+                const elapsed = Date.now() - this.startTime;
+                
+                // Update UI immediately - query is cancelled
+                const executeBtn = document.getElementById('executeBtn');
+                const cancelBtn = document.getElementById('cancelBtn');
+                const statusElement = document.getElementById('statusQuery');
+                
+                executeBtn.disabled = false;
+                cancelBtn.disabled = true;
+                cancelBtn.style.display = 'none';
+                statusElement.textContent = 'Cancelled';
+                document.getElementById('statusTime').textContent = `${(elapsed / 1000).toFixed(2)}s`;
+                document.getElementById('statusRows').textContent = '';
+                document.getElementById('resultsContainer').innerHTML = 
+                    '<div style="color: var(--text-secondary); font-size: 13px;">Query cancelled by user.</div>';
+                
+                // Send cancellation request to server (fire and forget)
+                try {
+                    fetch('?handler=CancelQuery', { method: 'POST' }).catch(err => {
+                        console.error('Cancel query server request failed:', err);
+                    });
+                } catch (error) {
+                    console.error('Cancel query error:', error);
+                }
+                
+                // Mark query as no longer running
+                this.queryRunning = false;
             },
 
             displayResults(result) {
@@ -1048,7 +1334,7 @@
             },
 
             async refreshMetadata() {
-                await this.loadMetadata();
+                await this.loadMetadata({ maxAttempts: this.maxMetadataAttempts });
             },
 
             async showSchema() {

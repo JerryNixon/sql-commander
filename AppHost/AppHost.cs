@@ -8,6 +8,7 @@ var sql = builder
 
 var sqlproj = builder
     .AddSqlProject<Projects.SqlServer>("sqlproj")
+    .WithSkipWhenDeployed()
     .WithReference(sql);
 
 var sqlcmdr = builder

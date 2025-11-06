@@ -7,5 +7,5 @@
   "TrustServerCertificate": true,
   "ConnectionTimeout": 30,
   "ConfirmActions": false,
-  "Theme": "light"
+  "Theme": "dark"
 }
