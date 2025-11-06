@@ -1,11 +1,12 @@
 {
-  "Server": "127.0.0.1,2468",
-  "Database": "db",
+  "Server": "sql-server-20251106013509.database.windows.net,1433",
+  "Database": "sql-database",
   "UserId": "sa",
   "Password": ")YW53\u002B2M(sfJDnt!*0rP(G",
   "DefaultResultLimit": 100,
   "TrustServerCertificate": true,
   "ConnectionTimeout": 30,
   "ConfirmActions": false,
-  "Theme": "dark"
+  "Theme": "dark",
+  "AuthenticationType": 1
 }

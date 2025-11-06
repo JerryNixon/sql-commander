@@ -64,9 +64,11 @@ public class IndexModel : PageModel
             _logger.LogInformation("Test connection request received");
             if (settings == null) return BadRequest(new { success = false, errorMessage = "Invalid settings data" });
             if (string.IsNullOrWhiteSpace(settings.Server)) return BadRequest(new { success = false, errorMessage = "Server is required" });
-            var connectionString = settings.ToConnectionString();
-            _logger.LogInformation("Testing connection to {Server}/{Database}", settings.Server, settings.Database);
-            var result = await _metadataService.TestConnectionAsync(connectionString);
+            
+            _logger.LogInformation("Testing connection to {Server}/{Database} using {AuthType}", 
+                settings.Server, settings.Database, settings.AuthenticationType);
+            
+            var result = await _metadataService.TestConnectionAsync(settings);
             _logger.LogInformation("Test connection result: {Success}", result.Success);
             return new JsonResult(result);
         }
@@ -82,15 +84,16 @@ public class IndexModel : PageModel
         try
         {
             var settings = await _settingsService.GetSettingsAsync();
-            var connectionString = settings.ToConnectionString();
-            if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(settings.Server)) return new JsonResult(new { success = false, error = "No connection configured" });
-            var metadata = await _metadataService.GetMetadataAsync(connectionString);
+            if (string.IsNullOrWhiteSpace(settings.Server)) 
+                return new JsonResult(new { success = false, error = "No connection configured" });
+            
+            var metadata = await _metadataService.GetMetadataAsync(settings);
             return new JsonResult(new { success = true, data = metadata });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load metadata");
-            return new JsonResult(new { success = false, error = ex.Message });
+            return new JsonResult(new { success = false, message = ex.Message, details = ex.ToString() });
         }
     }
 
@@ -99,10 +102,11 @@ public class IndexModel : PageModel
         try
         {
             var settings = await _settingsService.GetSettingsAsync();
-            var connectionString = settings.ToConnectionString();
-            if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(settings.Server)) return new JsonResult(new QueryResponse { Success = false, ErrorMessage = "No connection configured" });
+            if (string.IsNullOrWhiteSpace(settings.Server)) 
+                return new JsonResult(new QueryResponse { Success = false, ErrorMessage = "No connection configured" });
+            
             var requestWithLimit = request with { ResultLimit = request.ResultLimit ?? settings.DefaultResultLimit };
-            var result = await _queryExecutionService.ExecuteQueryAsync(connectionString, requestWithLimit, HttpContext.RequestAborted);
+            var result = await _queryExecutionService.ExecuteQueryAsync(settings, requestWithLimit, HttpContext.RequestAborted);
             return new JsonResult(result);
         }
         catch (Exception ex)
@@ -123,8 +127,7 @@ public class IndexModel : PageModel
         try
         {
             var settings = await _settingsService.GetSettingsAsync();
-            var connectionString = settings.ToConnectionString();
-            var metadata = await _metadataService.GetMetadataAsync(connectionString);
+            var metadata = await _metadataService.GetMetadataAsync(settings);
             var json = JsonSerializer.Serialize(metadata, new JsonSerializerOptions { WriteIndented = true });
             var fileName = $"{settings.Server}_{settings.Database}_schema_{DateTime.Now:yyyyMMdd_HHmmss}.json";
             return File(System.Text.Encoding.UTF8.GetBytes(json), "application/json", fileName);
@@ -136,4 +139,3 @@ public class IndexModel : PageModel
         }
     }
 }
-

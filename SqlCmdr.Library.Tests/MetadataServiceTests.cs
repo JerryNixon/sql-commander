@@ -1,12 +1,12 @@
+using Azure.Core;
 using SqlCmdr.Services;
 using SqlCmdr.Abstractions;
 using SqlCmdr.Models;
+using SqlCmdr.Infrastructure;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using FluentAssertions;
 using AutoFixture;
-using AutoFixture.Xunit2;
 
 namespace SqlCmdr.Tests;
 
@@ -16,13 +16,15 @@ public class MetadataServiceTests
 {
     private readonly IFixture _fixture;
     private readonly Mock<ILogger<MetadataService>> _mockLogger;
+    private readonly ISqlConnectionFactory _connectionFactory;
     private readonly MetadataService _sut;
 
     public MetadataServiceTests()
     {
         _fixture = new Fixture();
         _mockLogger = new Mock<ILogger<MetadataService>>();
-        _sut = new MetadataService(_mockLogger.Object);
+        _connectionFactory = new SqlConnectionFactory(Mock.Of<TokenCredential>());
+        _sut = new MetadataService(_mockLogger.Object, _connectionFactory);
     }
 
     #region Constructor Tests
@@ -31,7 +33,7 @@ public class MetadataServiceTests
     public void Constructor_WithNullLogger_ThrowsArgumentNullException()
     {
         // Act
-        Action act = () => new MetadataService(null!);
+        Action act = () => new MetadataService(null!, _connectionFactory);
 
         // Assert
         act.Should().Throw<ArgumentNullException>()
@@ -39,10 +41,21 @@ public class MetadataServiceTests
     }
 
     [Fact]
+    public void Constructor_WithNullConnectionFactory_ThrowsArgumentNullException()
+    {
+        // Act
+        Action act = () => new MetadataService(_mockLogger.Object, null!);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>()
+            .WithParameterName("connectionFactory");
+    }
+
+    [Fact]
     public void Constructor_WithValidLogger_CreatesInstance()
     {
         // Act
-        var service = new MetadataService(_mockLogger.Object);
+        var service = new MetadataService(_mockLogger.Object, _connectionFactory);
 
         // Assert
         service.Should().NotBeNull();
@@ -57,7 +70,7 @@ public class MetadataServiceTests
     public async Task TestConnectionAsync_WithNullConnectionString_ThrowsArgumentException()
     {
         // Act
-        Func<Task> act = async () => await _sut.TestConnectionAsync(null!);
+        Func<Task> act = async () => await _sut.TestConnectionAsync((string)null!);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -82,7 +95,6 @@ public class MetadataServiceTests
     {
         // Arrange
         var invalidConnectionString = "Server=InvalidServer12345;Database=NonExistent;Connection Timeout=1;TrustServerCertificate=True";
-
         // Act
         var result = await _sut.TestConnectionAsync(invalidConnectionString);
 
@@ -100,7 +112,6 @@ public class MetadataServiceTests
     {
         // Arrange
         var connectionString = "Server=.;Database=NonExistentDatabase_12345;Integrated Security=True;TrustServerCertificate=True;Connection Timeout=5";
-
         // Act
         var result = await _sut.TestConnectionAsync(connectionString);
 
@@ -115,7 +126,6 @@ public class MetadataServiceTests
     {
         // Arrange
         var connectionString = "Server=.;Database=master;User Id=InvalidUser;Password=InvalidPassword;Connection Timeout=5;TrustServerCertificate=True";
-
         // Act
         var result = await _sut.TestConnectionAsync(connectionString);
 
@@ -130,7 +140,6 @@ public class MetadataServiceTests
     {
         // Arrange
         var invalidConnectionString = "Server=InvalidServer;Database=Test;Connection Timeout=1";
-
         // Act
         var result = await _sut.TestConnectionAsync(invalidConnectionString);
 
@@ -148,7 +157,7 @@ public class MetadataServiceTests
     public async Task GetMetadataAsync_WithNullConnectionString_ThrowsArgumentException()
     {
         // Act
-        Func<Task> act = async () => await _sut.GetMetadataAsync(null!);
+        Func<Task> act = async () => await _sut.GetMetadataAsync((string)null!);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>()
@@ -173,7 +182,6 @@ public class MetadataServiceTests
     {
         // Arrange
         var invalidConnectionString = "Server=InvalidServer12345;Database=NonExistent;Connection Timeout=1";
-
         // Act
         Func<Task> act = async () => await _sut.GetMetadataAsync(invalidConnectionString);
 

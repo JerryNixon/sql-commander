@@ -1,18 +1,42 @@
-using Microsoft.Data.SqlClient;
-using SqlCmdr.Models;
-using System.Data;
 using Microsoft.Extensions.Logging;
 using SqlCmdr.Abstractions;
+using SqlCmdr.Infrastructure;
+using SqlCmdr.Models;
+using Microsoft.Data.SqlClient;
+using System.Data;
 
 namespace SqlCmdr.Services;
 
 public class MetadataService : IMetadataService
 {
+    readonly ISqlConnectionFactory _connectionFactory;
     readonly ILogger<MetadataService> _logger;
-    
-    public MetadataService(ILogger<MetadataService> logger)
+
+    public MetadataService(ILogger<MetadataService> logger, ISqlConnectionFactory connectionFactory)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
+    }
+
+    public async Task<ConnectionTestResult> TestConnectionAsync(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        try
+        {
+            await using var connection = await _connectionFactory.CreateOpenConnectionAsync(settings).ConfigureAwait(false);
+            var serverVersion = connection.ServerVersion;
+            var database = connection.Database;
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT SYSTEM_USER";
+            var userName = (await command.ExecuteScalarAsync().ConfigureAwait(false))?.ToString() ?? "Unknown";
+            return new ConnectionTestResult { Success = true, ServerVersion = serverVersion, DatabaseName = database, UserName = userName };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Connection test failed");
+            return new ConnectionTestResult { Success = false, ErrorMessage = ex.Message };
+        }
     }
 
     public async Task<ConnectionTestResult> TestConnectionAsync(string connectionString)
@@ -20,21 +44,23 @@ public class MetadataService : IMetadataService
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new ArgumentException("Connection string cannot be null or empty.", nameof(connectionString));
 
-        try
-        {
-            await using var connection = new SqlConnection(connectionString);
-            await connection.OpenAsync();
-            var serverVersion = connection.ServerVersion;
-            var database = connection.Database;
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT SYSTEM_USER";
-            var userName = (await command.ExecuteScalarAsync())?.ToString() ?? "Unknown";
-            return new ConnectionTestResult { Success = true, ServerVersion = serverVersion, DatabaseName = database, UserName = userName };
-        }
-        catch (Exception ex)
-        {
-            return new ConnectionTestResult { Success = false, ErrorMessage = ex.Message };
-        }
+        var settings = AppSettings.FromConnectionString(connectionString);
+        return await TestConnectionAsync(settings);
+    }
+
+    public async Task<DatabaseMetadata> GetMetadataAsync(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var metadata = new DatabaseMetadata();
+        await using var connection = await _connectionFactory.CreateOpenConnectionAsync(settings).ConfigureAwait(false);
+
+        metadata.TablesInternal.AddRange(await GetTablesAsync(connection).ConfigureAwait(false));
+        metadata.ViewsInternal.AddRange(await GetViewsAsync(connection).ConfigureAwait(false));
+        metadata.StoredProceduresInternal.AddRange(await GetStoredProceduresAsync(connection).ConfigureAwait(false));
+        metadata.ForeignKeysInternal.AddRange(await GetForeignKeysAsync(connection).ConfigureAwait(false));
+
+        return metadata;
     }
 
     public async Task<DatabaseMetadata> GetMetadataAsync(string connectionString)
@@ -42,16 +68,8 @@ public class MetadataService : IMetadataService
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new ArgumentException("Connection string cannot be null or empty.", nameof(connectionString));
 
-        var metadata = new DatabaseMetadata();
-        await using var connection = new SqlConnection(connectionString);
-        await connection.OpenAsync();
-        
-        metadata.TablesInternal.AddRange(await GetTablesAsync(connection));
-        metadata.ViewsInternal.AddRange(await GetViewsAsync(connection));
-        metadata.StoredProceduresInternal.AddRange(await GetStoredProceduresAsync(connection));
-        metadata.ForeignKeysInternal.AddRange(await GetForeignKeysAsync(connection));
-        
-        return metadata;
+        var settings = AppSettings.FromConnectionString(connectionString);
+        return await GetMetadataAsync(settings);
     }
 
     async Task<List<ForeignKeyMetadata>> GetForeignKeysAsync(SqlConnection connection)
@@ -77,8 +95,8 @@ public class MetadataService : IMetadataService
             WHERE pt.is_ms_shipped = 0 AND rt.is_ms_shipped = 0
             ORDER BY ps.name, pt.name, fk.name";
         await using var command = new SqlCommand(sql, connection);
-        await using var reader = await command.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        while (await reader.ReadAsync().ConfigureAwait(false))
         {
             fks.Add(new ForeignKeyMetadata { Name = reader["FkName"].ToString()!, ParentSchema = reader["ParentSchema"].ToString()!, ParentTable = reader["ParentTable"].ToString()!, ParentColumn = reader["ParentColumn"].ToString()!, ReferencedSchema = reader["ReferencedSchema"].ToString()!, ReferencedTable = reader["ReferencedTable"].ToString()!, ReferencedColumn = reader["ReferencedColumn"].ToString()! });
         }
@@ -105,11 +123,11 @@ public class MetadataService : IMetadataService
             WHERE t.is_ms_shipped = 0
             ORDER BY s.name, t.name, c.column_id";
         await using var command = new SqlCommand(sql, connection);
-        await using var reader = await command.ExecuteReaderAsync();
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
         string? currentSchema = null;
         string? currentTable = null;
         TableMetadata? current = null;
-        while (await reader.ReadAsync())
+        while (await reader.ReadAsync().ConfigureAwait(false))
         {
             var schema = reader.GetString(0);
             var table = reader.GetString(1);
@@ -152,11 +170,11 @@ public class MetadataService : IMetadataService
             WHERE v.is_ms_shipped = 0
             ORDER BY s.name, v.name, c.column_id";
         await using var command = new SqlCommand(sql, connection);
-        await using var reader = await command.ExecuteReaderAsync();
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
         string? currentSchema = null;
         string? currentView = null;
         ViewMetadata? current = null;
-        while (await reader.ReadAsync())
+        while (await reader.ReadAsync().ConfigureAwait(false))
         {
             var schema = reader.GetString(0);
             var view = reader.GetString(1);
@@ -200,11 +218,11 @@ public class MetadataService : IMetadataService
             WHERE p.is_ms_shipped = 0
             ORDER BY s.name, p.name, pm.parameter_id";
         await using var command = new SqlCommand(sql, connection);
-        await using var reader = await command.ExecuteReaderAsync();
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
         string? currentSchema = null;
         string? currentProc = null;
         StoredProcedureMetadata? current = null;
-        while (await reader.ReadAsync())
+        while (await reader.ReadAsync().ConfigureAwait(false))
         {
             var schema = reader.GetString(0);
             var proc = reader.GetString(1);
@@ -232,7 +250,7 @@ public class MetadataService : IMetadataService
         {
             try
             {
-                proc.OutputColumnsInternal.AddRange(await GetProcedureOutputColumnsAsync(connection, proc.FullName));
+                proc.OutputColumnsInternal.AddRange(await GetProcedureOutputColumnsAsync(connection, proc.FullName).ConfigureAwait(false));
             }
             catch (Exception ex)
             {
@@ -249,8 +267,8 @@ public class MetadataService : IMetadataService
         {
             await using var command = new SqlCommand("sp_describe_first_result_set", connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = 5 };
             command.Parameters.AddWithValue("@tsql", $"EXEC {procedureName}");
-            await using var reader = await command.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
             {
                 var columnName = reader.IsDBNull(reader.GetOrdinal("name")) ? $"Column{reader.GetInt32(reader.GetOrdinal("column_ordinal"))}" : reader.GetString(reader.GetOrdinal("name"));
                 var systemTypeName = reader.GetString(reader.GetOrdinal("system_type_name"));

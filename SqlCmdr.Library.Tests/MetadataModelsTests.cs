@@ -472,6 +472,55 @@ public class MetadataModelsTests
     }
 
     [Fact]
+    public void AppSettings_ToConnectionString_ForAzureDefault_RemovesAuthenticationKeyword()
+    {
+        // Arrange
+        var settings = new AppSettings
+        {
+            Server = "azure.database.windows.net",
+            Database = "AppDb",
+            AuthenticationType = AuthenticationType.AzureDefaultCredential
+        };
+
+        // Act
+        var connectionString = settings.ToConnectionString();
+        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(connectionString);
+
+        // Assert
+        builder.Authentication.Should().Be(Microsoft.Data.SqlClient.SqlAuthenticationMethod.NotSpecified);
+        builder.UserID.Should().BeEmpty();
+        builder.Password.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AppSettings_FromConnectionString_WithActiveDirectoryDefault_InferredAsAzure()
+    {
+        // Arrange
+        var connectionString = "Server=tcp:example.database.windows.net,1433;Database=sample;Authentication=Active Directory Default;";
+
+        // Act
+        var parsed = AppSettings.FromConnectionString(connectionString);
+
+        // Assert
+        parsed.AuthenticationType.Should().Be(AuthenticationType.AzureDefaultCredential);
+        parsed.UserId.Should().BeEmpty();
+        parsed.Password.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AppSettings_FromConnectionString_WithoutCredentials_DefaultsToAzure()
+    {
+        // Arrange
+        var connectionString = "Server=tcp:example.database.windows.net,1433;Database=sample;Encrypt=True;";
+
+        // Act
+        var parsed = AppSettings.FromConnectionString(connectionString);
+
+        // Assert
+        parsed.AuthenticationType.Should().Be(AuthenticationType.AzureDefaultCredential);
+    }
+
+    [Fact]
     public void AppSettings_FromConnectionString_RoundTripsSuccessfully()
     {
         // Arrange
@@ -491,6 +540,33 @@ public class MetadataModelsTests
         roundtripped.Server.Should().Be(original.Server);
         roundtripped.Database.Should().Be(original.Database);
         roundtripped.UserId.Should().Be(original.UserId);
+    }
+
+    [Fact]
+    public void AppSettings_RoundTrip_WithAzureDefaultCredential()
+    {
+        // Arrange
+        var original = new AppSettings
+        {
+            Server = "azure.database.windows.net",
+            Database = "AppDb",
+            AuthenticationType = AuthenticationType.AzureDefaultCredential,
+            TrustServerCertificate = false,
+            ConnectionTimeout = 15
+        };
+
+        // Act
+        var connectionString = original.ToConnectionString();
+        var roundtripped = AppSettings.FromConnectionString(connectionString);
+
+        // Assert
+        roundtripped.AuthenticationType.Should().Be(AuthenticationType.AzureDefaultCredential);
+        roundtripped.Server.Should().Be(original.Server);
+        roundtripped.Database.Should().Be(original.Database);
+        roundtripped.TrustServerCertificate.Should().BeFalse();
+        roundtripped.ConnectionTimeout.Should().Be(15);
+        roundtripped.UserId.Should().BeEmpty();
+        roundtripped.Password.Should().BeEmpty();
     }
 
     [Fact]

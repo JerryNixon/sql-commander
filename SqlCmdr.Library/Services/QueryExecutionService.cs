@@ -1,21 +1,23 @@
-using Microsoft.Data.SqlClient;
-using SqlCmdr.Models;
-using System.Data;
-using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using SqlCmdr.Abstractions;
+using SqlCmdr.Infrastructure;
+using SqlCmdr.Models;
+using Microsoft.Data.SqlClient;
+using System.Diagnostics;
 
 namespace SqlCmdr.Services;
 
 public class QueryExecutionService : IQueryExecutionService
 {
+    readonly ISqlConnectionFactory _connectionFactory;
     readonly ILogger<QueryExecutionService> _logger;
     SqlCommand? _currentCommand;
     readonly object _commandLock = new();
 
-    public QueryExecutionService(ILogger<QueryExecutionService> logger)
+    public QueryExecutionService(ILogger<QueryExecutionService> logger, ISqlConnectionFactory connectionFactory)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
     }
 
     public void CancelCurrentQuery()
@@ -39,11 +41,15 @@ public class QueryExecutionService : IQueryExecutionService
         {
             throw new ArgumentException("Connection string cannot be null or empty.", nameof(connectionString));
         }
-        
-        if (request == null)
-        {
-            throw new ArgumentNullException(nameof(request));
-        }
+
+        var settings = AppSettings.FromConnectionString(connectionString);
+        return await ExecuteQueryAsync(settings, request, cancellationToken);
+    }
+
+    public async Task<QueryResponse> ExecuteQueryAsync(AppSettings settings, QueryRequest request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(request);
 
         if (string.IsNullOrWhiteSpace(request.Sql))
         {
@@ -54,11 +60,11 @@ public class QueryExecutionService : IQueryExecutionService
         var response = new QueryResponse();
         var totalRows = 0;
         var wasTruncated = false;
-        var resultLimit = request.ResultLimit ?? 100;
-        
+        var resultLimit = Math.Max(1, request.ResultLimit ?? 100);
+
         try
         {
-            await using var connection = new SqlConnection(connectionString);
+            await using var connection = await _connectionFactory.CreateOpenConnectionAsync(settings, cancellationToken).ConfigureAwait(false);
             connection.InfoMessage += (sender, e) =>
             {
                 foreach (SqlError error in e.Errors)
@@ -66,26 +72,31 @@ public class QueryExecutionService : IQueryExecutionService
                     response.MessagesInternal.Add(error.Message);
                 }
             };
-            await connection.OpenAsync(cancellationToken);
-            
+
             SqlCommand command;
             lock (_commandLock)
             {
                 command = new SqlCommand(request.Sql, connection) { CommandTimeout = 300 };
                 _currentCommand = command;
             }
-            
+
             try
             {
-                await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+                await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
                 do
                 {
                     var resultSet = new ResultSet();
                     resultSet.ColumnsInternal.AddRange(Enumerable.Range(0, reader.FieldCount).Select(reader.GetName));
-                    
+
                     var rowCount = 0;
-                    while (rowCount < resultLimit && await reader.ReadAsync(cancellationToken))
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                     {
+                        if (rowCount == resultLimit)
+                        {
+                            wasTruncated = true;
+                            break;
+                        }
+
                         var row = new Dictionary<string, object?>();
                         for (var i = 0; i < reader.FieldCount; i++)
                         {
@@ -95,15 +106,9 @@ public class QueryExecutionService : IQueryExecutionService
                         rowCount++;
                         totalRows++;
                     }
-                    
-                    // Check for truncation: if we hit the limit and there's more data
-                    if (rowCount == resultLimit && !reader.IsClosed && await reader.ReadAsync(cancellationToken))
-                    {
-                        wasTruncated = true;
-                    }
-                    
+
                     response.ResultSetsInternal.Add(resultSet with { RowCount = rowCount });
-                } while (await reader.NextResultAsync(cancellationToken));
+                } while (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false));
             }
             finally
             {
@@ -112,7 +117,7 @@ public class QueryExecutionService : IQueryExecutionService
                     _currentCommand = null;
                 }
             }
-            
+
             stopwatch.Stop();
             return response with 
             { 

@@ -76,22 +76,32 @@
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">Settings</div>
             <div class="form-group">
+                <label>Authentication Type</label>
+                <select id="settingAuthType" style="width: 100%; padding: 8px; border-radius: 2px;" onchange="app.onAuthTypeChange()">
+                    <option value="0">SQL Authentication</option>
+                    <option value="1">Azure Default Credential (Managed Identity, Azure CLI, VS Code, etc.)</option>
+                </select>
+                <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;" id="authTypeHelp">
+                    Use SQL Authentication with username/password, or Azure Default Credential for pass-through authentication.
+                </div>
+            </div>
+            <div class="form-group">
                 <label>Server</label>
-                <input type="text" id="settingServer" placeholder="localhost">
+                <input type="text" id="settingServer" placeholder="yourserver.database.windows.net">
             </div>
             <div class="form-group">
                 <label>Database</label>
                 <input type="text" id="settingDatabase" placeholder="master">
             </div>
-            <div class="form-group">
+            <div class="form-group" id="sqlAuthFields">
                 <label>User ID</label>
                 <input type="text" id="settingUserId" placeholder="sa">
             </div>
-            <div class="form-group">
+            <div class="form-group" id="sqlPasswordField">
                 <label>Password</label>
                 <div class="password-wrapper">
                     <input type="password" id="settingPassword">
-                    <button type="button" class="password-toggle" onclick="app.togglePasswordVisibility()">👁️</button>
+                    <button type="button" class="password-toggle" onclick="app.togglePasswordVisibility()">👀</button>
                 </div>
             </div>
             <div class="form-group">
@@ -1227,6 +1237,7 @@
                 fetch('?handler=Settings')
                     .then(r => r.json())
                     .then(settings => {
+                        document.getElementById('settingAuthType').value = settings.authenticationType || 0;
                         document.getElementById('settingServer').value = settings.server || '';
                         document.getElementById('settingDatabase').value = settings.database || '';
                         document.getElementById('settingUserId').value = settings.userId || '';
@@ -1236,8 +1247,28 @@
                         document.getElementById('settingConfirmActions').checked = settings.confirmActions === true;
                         document.getElementById('settingTheme').value = settings.theme || 'dark';
                         document.getElementById('settingResultLimit').value = settings.defaultResultLimit || 100;
+                        this.onAuthTypeChange(); // Update field visibility
                         document.getElementById('settingsModal').classList.add('show');
                     });
+            },
+
+            onAuthTypeChange() {
+                const authType = parseInt(document.getElementById('settingAuthType').value);
+                const sqlAuthFields = document.getElementById('sqlAuthFields');
+                const sqlPasswordField = document.getElementById('sqlPasswordField');
+                const authTypeHelp = document.getElementById('authTypeHelp');
+                
+                if (authType === 0) {
+                    // SQL Authentication
+                    sqlAuthFields.style.display = 'block';
+                    sqlPasswordField.style.display = 'block';
+                    authTypeHelp.textContent = 'SQL Authentication uses username and password to connect.';
+                } else {
+                    // Azure Default Credential
+                    sqlAuthFields.style.display = 'none';
+                    sqlPasswordField.style.display = 'none';
+                    authTypeHelp.textContent = 'Azure Default Credential uses your Azure identity (Managed Identity, Azure CLI, Visual Studio, VS Code, etc.) for authentication.';
+                }
             },
 
             hideSettings() {
@@ -1259,6 +1290,7 @@
 
             async saveSettings() {
                 const settings = {
+                    authenticationType: parseInt(document.getElementById('settingAuthType').value),
                     server: document.getElementById('settingServer').value,
                     database: document.getElementById('settingDatabase').value,
                     userId: document.getElementById('settingUserId').value,
@@ -1288,6 +1320,7 @@
 
             async testConnection() {
                 const settings = {
+                    authenticationType: parseInt(document.getElementById('settingAuthType').value),
                     server: document.getElementById('settingServer').value,
                     database: document.getElementById('settingDatabase').value,
                     userId: document.getElementById('settingUserId').value,
