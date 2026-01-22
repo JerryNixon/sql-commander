@@ -18,6 +18,7 @@ ENV DOTNET_EnableDiagnostics=0
 ENV SQLCMDR_FILE_LOG=0
 LABEL org.opencontainers.image.title="sql-commander" \
       org.opencontainers.image.description="Lightweight web-based SQL Server exploration tool" \
+      org.opencontainers.image.version="1.1.0" \
       org.opencontainers.image.source="https://github.com/JerryNixon/sql-commander" \
       org.opencontainers.image.licenses="MIT"
 COPY --from=build /app/publish .

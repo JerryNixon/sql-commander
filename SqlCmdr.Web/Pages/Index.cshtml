@@ -130,12 +130,8 @@
             <div class="modal-actions">
                 <button onclick="app.testConnection()">Test Connection</button>
                 <div class="modal-actions-right">
-                    <button class="secondary" onclick="app.hideSettings()">Cancel</button>
-                    <button onclick="app.saveSettings()">Save</button>
+                    <button class="secondary" onclick="app.hideSettings()">Close</button>
                 </div>
-            </div>
-            <div style="margin-top: 12px; text-align: center;">
-                <a href="#" class="delete-settings-link" onclick="app.deleteSettings(); return false;">Delete Settings File</a>
             </div>
         </div>
     </div>
@@ -1286,36 +1282,6 @@
             togglePasswordVisibility() {
                 const passwordInput = document.getElementById('settingPassword');
                 passwordInput.type = passwordInput.type === 'password' ? 'text' : 'password';
-            },
-
-            async saveSettings() {
-                const settings = {
-                    authenticationType: parseInt(document.getElementById('settingAuthType').value),
-                    server: document.getElementById('settingServer').value,
-                    database: document.getElementById('settingDatabase').value,
-                    userId: document.getElementById('settingUserId').value,
-                    password: document.getElementById('settingPassword').value,
-                    trustServerCertificate: document.getElementById('settingTrustServerCert').checked,
-                    confirmActions: document.getElementById('settingConfirmActions').checked,
-                    theme: document.getElementById('settingTheme').value,
-                    defaultResultLimit: parseInt(document.getElementById('settingResultLimit').value)
-                };
-
-                await fetch('?handler=Settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(settings)
-                });
-
-                this.hideSettings();
-                location.reload();
-            },
-
-            async deleteSettings() {
-                if (!this.settings.confirmActions || confirm('Delete the settings file and refresh the page?')) {
-                    await fetch('?handler=Settings', { method: 'DELETE' });
-                    location.reload();
-                }
             },
 
             async testConnection() {

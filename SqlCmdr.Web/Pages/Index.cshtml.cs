@@ -45,18 +45,6 @@ public class IndexModel : PageModel
         return new JsonResult(settings);
     }
 
-    public async Task<IActionResult> OnPostSettingsAsync([FromBody] AppSettings settings)
-    {
-        await _settingsService.SaveSettingsAsync(settings);
-        return new JsonResult(new { success = true });
-    }
-
-    public async Task<IActionResult> OnDeleteSettingsAsync()
-    {
-        await _settingsService.DeleteSettingsAsync();
-        return new JsonResult(new { success = true });
-    }
-
     public async Task<IActionResult> OnPostTestConnectionAsync([FromBody] AppSettings settings)
     {
         try

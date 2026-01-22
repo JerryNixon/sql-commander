@@ -15,6 +15,32 @@ public class MetadataModelsTests
         _fixture = new Fixture();
     }
 
+    [Fact]
+    public void AppSettings_ToConnectionString_ForManagedIdentity_SetsAuthentication()
+    {
+        var settings = new AppSettings
+        {
+            Server = "azure.database.windows.net",
+            Database = "AppDb",
+            AuthenticationType = AuthenticationType.AzureManagedIdentity
+        };
+        var cs = settings.ToConnectionString();
+        var builder = new Microsoft.Data.SqlClient.SqlConnectionStringBuilder(cs);
+        builder.Authentication.Should().Be(Microsoft.Data.SqlClient.SqlAuthenticationMethod.ActiveDirectoryManagedIdentity);
+        builder.UserID.Should().BeEmpty();
+        builder.Password.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AppSettings_FromConnectionString_WithManagedIdentity_ParsesCorrectly()
+    {
+        var cs = "Server=tcp:example.database.windows.net,1433;Database=sample;Authentication=Active Directory Managed Identity;";
+        var parsed = AppSettings.FromConnectionString(cs);
+        parsed.AuthenticationType.Should().Be(AuthenticationType.AzureManagedIdentity);
+        parsed.UserId.Should().BeEmpty();
+        parsed.Password.Should().BeEmpty();
+    }
+
     #region ColumnMetadata Tests
 
     [Fact]

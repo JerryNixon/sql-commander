@@ -9,12 +9,14 @@ SQL Cmdr provides a single-page interface for:
 - Executing SQL queries with real-time feedback
 - Generating CREATE, SELECT, and DROP scripts
 - Exporting database metadata as JSON
+- **Azure Default Credential support** for passwordless authentication
 
 Perfect for:
 - Quick database exploration during development
 - Ad-hoc query execution
 - Learning SQL Server schema structures
 - Lightweight alternative to SSMS for simple tasks
+- Running in Azure with managed identity authentication
 
 ## Getting Started (Local Dev)
 
@@ -29,23 +31,46 @@ Press F5 to launch with .NET Aspire orchestration.
 
 Image: `jerrynixon/sql-commander`
 
-Run:
-```
+### SQL Authentication
+```bash
 docker run -p 8080:8080 \
   -e ConnectionStrings__db="Server=host.docker.internal;Database=master;User Id=sa;Password=Your_password123;TrustServerCertificate=true" \
   jerrynixon/sql-commander:latest
 ```
 
-Environment Variables:
+### Azure Authentication (Managed Identity, Azure CLI, etc.)
+```bash
+docker run -p 8080:8080 \
+  -e ConnectionStrings__db="Server=myserver.database.windows.net;Database=mydb" \
+  jerrynixon/sql-commander:latest
+```
+
+When no credentials are provided in the connection string, SQL Cmdr automatically uses **Azure Default Credential** for authentication, which supports:
+- Managed Identity (System-assigned or User-assigned)
+- Azure CLI (`az login`)
+- Visual Studio / VS Code credentials
+- Azure PowerShell
+- Environment variables (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, etc.)
+
+This is ideal for running in Azure Container Instances, Azure Container Apps, AKS, or any Azure service with managed identity support.
+
+### Environment Variables
 - `ConnectionStrings__db` (required) SQL Server connection string
 - `SQLCMDR_FILE_LOG` (optional, set to `1` to enable file logging inside container)
 - `ASPNETCORE_URLS` (default `http://+:8080`)
 
-Health Check:
+### Health Check
 - `GET /health` returns `{ "status": "ok" }`
 
-Persistence:
+### Persistence
 - Settings stored in `sqlcmdr.settings.json` in container working directory
+- Use a volume mount to persist settings across container restarts:
+  ```bash
+  docker run -p 8080:8080 \
+    -v $(pwd)/data:/app \
+    -e ConnectionStrings__db="..." \
+    jerrynixon/sql-commander:latest
+  ```
 
 ## VS Code Integration
 
@@ -53,9 +78,29 @@ Persistence:
 - Requires the [MS SQL extension for VS Code](https://marketplace.visualstudio.com/items?itemName=ms-mssql.mssql).
 - When no server name is configured SQL Cmdr falls back to the current browser host on port 1433.
 
+## Authentication
+
+SQL Cmdr supports two authentication modes (configurable via the settings modal):
+
+### SQL Authentication
+Traditional username/password authentication:
+- Server: `myserver.database.windows.net`
+- Database: `mydb`
+- User ID: `myuser`
+- Password: `mypassword`
+
+### Azure Default Credential (Recommended for Azure)
+Passwordless authentication using Azure identity:
+- Server: `myserver.database.windows.net`
+- Database: `mydb`
+- No credentials required
+
+The UI automatically detects and uses the appropriate authentication method. When running in Azure with managed identity, no password management is needed.
+
 ## Architecture
 - ASP.NET Core 8 Razor Pages
-- Microsoft.Data.SqlClient
+- Microsoft.Data.SqlClient 5.2.2
+- Azure.Identity 1.17.0 (for Azure Default Credential)
 - Serilog (console by default, optional file sink)
 - .NET Aspire (dev only)
 

@@ -3,7 +3,8 @@ namespace SqlCmdr.Models;
 public enum AuthenticationType
 {
     SqlAuthentication,
-    AzureDefaultCredential
+    AzureDefaultCredential,
+    AzureManagedIdentity
 }
 
 public record AppSettings
@@ -31,17 +32,23 @@ public record AppSettings
 
         builder.Encrypt = true;
 
-        if (AuthenticationType == AuthenticationType.SqlAuthentication)
+        switch (AuthenticationType)
         {
-            builder.Authentication = Microsoft.Data.SqlClient.SqlAuthenticationMethod.SqlPassword;
-            builder.UserID = UserId;
-            builder.Password = Password;
-        }
-        else
-        {
-            builder.Remove("Authentication");
-            builder.Remove("User ID");
-            builder.Remove("Password");
+            case AuthenticationType.SqlAuthentication:
+                builder.Authentication = Microsoft.Data.SqlClient.SqlAuthenticationMethod.SqlPassword;
+                builder.UserID = UserId;
+                builder.Password = Password;
+                break;
+            case AuthenticationType.AzureManagedIdentity:
+                builder.Authentication = Microsoft.Data.SqlClient.SqlAuthenticationMethod.ActiveDirectoryManagedIdentity;
+                builder.Remove("User ID");
+                builder.Remove("Password");
+                break;
+            default:
+                builder.Remove("Authentication");
+                builder.Remove("User ID");
+                builder.Remove("Password");
+                break;
         }
 
         return builder.ConnectionString;
@@ -59,6 +66,7 @@ public record AppSettings
         AuthenticationType authType = builder.Authentication switch
         {
             Microsoft.Data.SqlClient.SqlAuthenticationMethod.SqlPassword => AuthenticationType.SqlAuthentication,
+            Microsoft.Data.SqlClient.SqlAuthenticationMethod.ActiveDirectoryManagedIdentity => AuthenticationType.AzureManagedIdentity,
             Microsoft.Data.SqlClient.SqlAuthenticationMethod.NotSpecified when hasSqlCredentials || isIntegratedSecurity => AuthenticationType.SqlAuthentication,
             Microsoft.Data.SqlClient.SqlAuthenticationMethod.NotSpecified => AuthenticationType.AzureDefaultCredential,
             _ => AuthenticationType.AzureDefaultCredential
