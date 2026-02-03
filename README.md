@@ -1,10 +1,10 @@
-# SQL Cmdr
+# SQL Commander
 
 A lightweight web-based SQL Server management tool for developers who need quick database exploration, query execution, and script generation without the overhead of full-featured database management tools.
 
-## What is SQL Cmdr?
+## What is SQL Commander?
 
-SQL Cmdr provides a single-page interface for:
+SQL Commander provides a single-page interface for:
 - Browsing database objects (tables, views, stored procedures)
 - Executing SQL queries with real-time feedback
 - Generating CREATE, SELECT, and DROP scripts
@@ -31,14 +31,41 @@ Press F5 to launch with .NET Aspire orchestration.
 
 Image: `jerrynixon/sql-commander`
 
-### SQL Authentication
+### Connecting to a Local SQL Server
+
+When connecting to SQL Server running directly on your host machine (not in a container):
+
 ```bash
 docker run -p 8080:8080 \
   -e ConnectionStrings__db="Server=host.docker.internal;Database=master;User Id=sa;Password=Your_password123;TrustServerCertificate=true" \
   jerrynixon/sql-commander:latest
 ```
 
+> **Note:** `host.docker.internal` resolves to your host machine from within a Docker container.
+
+### Connecting to SQL Server in Another Container
+
+When both SQL Cmdr and SQL Server are running as containers, they must be on the same Docker network and you must use the SQL Server container name as the server address:
+
+```bash
+# 1. Create a shared network
+docker network create sql-network
+
+# 2. Start SQL Server on the shared network
+docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=YourStrong@Passw0rd" \
+  -p 1433:1433 --name sql-server-dev --network sql-network \
+  -d mcr.microsoft.com/mssql/server:2025-latest
+
+# 3. Wait for SQL Server to initialize (~10 seconds), then start SQL Cmdr
+docker run -p 8080:8080 --name sql-commander --network sql-network \
+  -e ConnectionStrings__db="Server=sql-server-dev;Database=master;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=true" \
+  -d jerrynixon/sql-commander:latest
+```
+
+> **Important:** Use the container name (`sql-server-dev`) as the server address, not `host.docker.internal` or `localhost`. Container-to-container communication requires a shared Docker network.
+
 ### Azure Authentication (Managed Identity, Azure CLI, etc.)
+
 ```bash
 docker run -p 8080:8080 \
   -e ConnectionStrings__db="Server=myserver.database.windows.net;Database=mydb" \
@@ -116,4 +143,3 @@ sql-commander/
 
 ## License
 MIT License - See LICENSE
-
