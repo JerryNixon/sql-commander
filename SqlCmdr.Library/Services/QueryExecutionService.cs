@@ -76,7 +76,7 @@ public class QueryExecutionService : IQueryExecutionService
             SqlCommand command;
             lock (_commandLock)
             {
-                command = new SqlCommand(request.Sql, connection) { CommandTimeout = 300 };
+                command = new SqlCommand(request.Sql, connection) { CommandTimeout = Math.Max(0, settings.CommandTimeout) };
                 _currentCommand = command;
             }
 

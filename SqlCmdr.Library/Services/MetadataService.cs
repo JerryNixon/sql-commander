@@ -55,6 +55,7 @@ public class MetadataService : IMetadataService
         var metadata = new DatabaseMetadata();
         await using var connection = await _connectionFactory.CreateOpenConnectionAsync(settings).ConfigureAwait(false);
 
+        metadata.Connection = await GetConnectionInfoAsync(connection).ConfigureAwait(false);
         metadata.TablesInternal.AddRange(await GetTablesAsync(connection).ConfigureAwait(false));
         metadata.ViewsInternal.AddRange(await GetViewsAsync(connection).ConfigureAwait(false));
         metadata.StoredProceduresInternal.AddRange(await GetStoredProceduresAsync(connection).ConfigureAwait(false));
@@ -72,6 +73,63 @@ public class MetadataService : IMetadataService
         return await GetMetadataAsync(settings);
     }
 
+    async Task<ConnectionMetadata> GetConnectionInfoAsync(SqlConnection connection)
+    {
+        const string sql = @"
+            SELECT
+                CONVERT(nvarchar(256), SERVERPROPERTY('ServerName')) AS ServerName,
+                DB_NAME() AS DatabaseName,
+                SYSTEM_USER AS UserName,
+                CONVERT(nvarchar(128), SERVERPROPERTY('ProductVersion')) AS ProductVersion,
+                CONVERT(nvarchar(128), SERVERPROPERTY('ProductLevel')) AS ProductLevel,
+                CONVERT(nvarchar(256), SERVERPROPERTY('Edition')) AS Edition,
+                CONVERT(nvarchar(max), @@VERSION) AS Version";
+
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = 5 };
+        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+        if (!await reader.ReadAsync().ConfigureAwait(false))
+        {
+            return new ConnectionMetadata
+            {
+                ServerName = connection.DataSource,
+                DatabaseName = connection.Database,
+                VersionShort = connection.ServerVersion
+            };
+        }
+
+        var serverName = reader["ServerName"]?.ToString() ?? connection.DataSource;
+        var databaseName = reader["DatabaseName"]?.ToString() ?? connection.Database;
+        var userName = reader["UserName"]?.ToString() ?? string.Empty;
+        var productVersion = reader["ProductVersion"]?.ToString() ?? connection.ServerVersion;
+        var productLevel = reader["ProductLevel"]?.ToString() ?? string.Empty;
+        var edition = reader["Edition"]?.ToString() ?? string.Empty;
+        var version = reader["Version"]?.ToString() ?? string.Empty;
+
+        return new ConnectionMetadata
+        {
+            ServerName = serverName,
+            DatabaseName = databaseName,
+            UserName = userName,
+            ProductVersion = productVersion,
+            ProductLevel = productLevel,
+            Edition = edition,
+            Version = version,
+            VersionShort = BuildVersionShort(productVersion, productLevel)
+        };
+    }
+
+    static string BuildVersionShort(string productVersion, string productLevel)
+    {
+        if (string.IsNullOrWhiteSpace(productVersion))
+        {
+            return string.Empty;
+        }
+
+        var parts = productVersion.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var majorMinor = parts.Length >= 2 ? $"{parts[0]}.{parts[1]}" : productVersion;
+        return string.IsNullOrWhiteSpace(productLevel) ? majorMinor : $"{majorMinor} {productLevel}";
+    }
+
     async Task<List<ForeignKeyMetadata>> GetForeignKeysAsync(SqlConnection connection)
     {
         var fks = new List<ForeignKeyMetadata>();
@@ -83,7 +141,8 @@ public class MetadataService : IMetadataService
                 pc.name AS ParentColumn,
                 rs.name AS ReferencedSchema,
                 rt.name AS ReferencedTable,
-                rc.name AS ReferencedColumn
+                rc.name AS ReferencedColumn,
+                fkc.constraint_column_id AS ConstraintColumnId
             FROM sys.foreign_keys fk
             INNER JOIN sys.foreign_key_columns fkc ON fk.object_id = fkc.constraint_object_id
             INNER JOIN sys.tables pt ON fkc.parent_object_id = pt.object_id
@@ -93,12 +152,12 @@ public class MetadataService : IMetadataService
             INNER JOIN sys.schemas rs ON rt.schema_id = rs.schema_id
             INNER JOIN sys.columns rc ON fkc.referenced_object_id = rc.object_id AND fkc.referenced_column_id = rc.column_id
             WHERE pt.is_ms_shipped = 0 AND rt.is_ms_shipped = 0
-            ORDER BY ps.name, pt.name, fk.name";
+            ORDER BY ps.name, pt.name, fk.name, fkc.constraint_column_id";
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
-            fks.Add(new ForeignKeyMetadata { Name = reader["FkName"].ToString()!, ParentSchema = reader["ParentSchema"].ToString()!, ParentTable = reader["ParentTable"].ToString()!, ParentColumn = reader["ParentColumn"].ToString()!, ReferencedSchema = reader["ReferencedSchema"].ToString()!, ReferencedTable = reader["ReferencedTable"].ToString()!, ReferencedColumn = reader["ReferencedColumn"].ToString()! });
+            fks.Add(new ForeignKeyMetadata { Name = reader["FkName"].ToString()!, ParentSchema = reader["ParentSchema"].ToString()!, ParentTable = reader["ParentTable"].ToString()!, ParentColumn = reader["ParentColumn"].ToString()!, ReferencedSchema = reader["ReferencedSchema"].ToString()!, ReferencedTable = reader["ReferencedTable"].ToString()!, ReferencedColumn = reader["ReferencedColumn"].ToString()!, ConstraintColumnId = Convert.ToInt32(reader["ConstraintColumnId"]) });
         }
         return fks;
     }
@@ -115,11 +174,18 @@ public class MetadataService : IMetadataService
                 c.is_nullable AS IsNullable,
                 c.max_length AS MaxLength,
                 c.precision AS Precision,
-                c.scale AS Scale
+                c.scale AS Scale,
+                CAST(CASE WHEN pk.column_id IS NULL THEN 0 ELSE 1 END AS bit) AS IsPrimaryKey
             FROM sys.tables t
             INNER JOIN sys.schemas s ON t.schema_id = s.schema_id
             INNER JOIN sys.columns c ON t.object_id = c.object_id
             INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
+            LEFT JOIN (
+                SELECT ic.object_id, ic.column_id
+                FROM sys.indexes i
+                INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+                WHERE i.is_primary_key = 1 AND ic.is_included_column = 0
+            ) pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
             WHERE t.is_ms_shipped = 0
             ORDER BY s.name, t.name, c.column_id";
         await using var command = new SqlCommand(sql, connection);
@@ -141,7 +207,7 @@ public class MetadataService : IMetadataService
                 currentSchema = schema;
                 currentTable = table;
             }
-            current!.ColumnsInternal.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7) });
+            current!.ColumnsInternal.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7), IsPrimaryKey = reader.GetBoolean(8) });
         }
         if (current is not null)
         {
@@ -162,11 +228,18 @@ public class MetadataService : IMetadataService
                 c.is_nullable AS IsNullable,
                 c.max_length AS MaxLength,
                 c.precision AS Precision,
-                c.scale AS Scale
+                c.scale AS Scale,
+                CAST(CASE WHEN viewKey.column_id IS NULL THEN 0 ELSE 1 END AS bit) AS IsPrimaryKey
             FROM sys.views v
             INNER JOIN sys.schemas s ON v.schema_id = s.schema_id
             INNER JOIN sys.columns c ON v.object_id = c.object_id
             INNER JOIN sys.types ty ON c.user_type_id = ty.user_type_id
+            LEFT JOIN (
+                SELECT ic.object_id, ic.column_id
+                FROM sys.indexes i
+                INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+                WHERE i.is_unique = 1 AND ic.is_included_column = 0
+            ) viewKey ON viewKey.object_id = c.object_id AND viewKey.column_id = c.column_id
             WHERE v.is_ms_shipped = 0
             ORDER BY s.name, v.name, c.column_id";
         await using var command = new SqlCommand(sql, connection);
@@ -188,7 +261,7 @@ public class MetadataService : IMetadataService
                 currentSchema = schema;
                 currentView = view;
             }
-            current!.ColumnsInternal.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7) });
+            current!.ColumnsInternal.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7), IsPrimaryKey = reader.GetBoolean(8) });
         }
         if (current is not null)
         {

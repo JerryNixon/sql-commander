@@ -1,0 +1,6 @@
+CREATE TABLE dbo.TodoTag
+(
+    Id INT NOT NULL PRIMARY KEY,
+    Name NVARCHAR(80) NOT NULL,
+    Color NVARCHAR(20) NULL
+);

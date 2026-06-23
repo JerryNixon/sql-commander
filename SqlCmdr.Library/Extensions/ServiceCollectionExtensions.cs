@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<IMetadataService, MetadataService>();
+        services.AddSingleton<IDataApiBuilderService, DataApiBuilderService>();
         services.AddScoped<IQueryExecutionService, QueryExecutionService>();
         return services;
     }

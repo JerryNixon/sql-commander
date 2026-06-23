@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Data API Health - SQL Commander</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=3">
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0d1117;
+            --panel: #161b22;
+            --panel-soft: #1f2630;
+            --border: #30363d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --blue: #58a6ff;
+            --green: #3fb950;
+            --red: #f85149;
+            --yellow: #d29922;
+            --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background:
+                radial-gradient(circle at 18% 10%, rgba(88, 166, 255, 0.16), transparent 32rem),
+                radial-gradient(circle at 82% 0%, rgba(63, 185, 80, 0.10), transparent 28rem),
+                var(--bg);
+            color: var(--text);
+            font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        a { color: var(--blue); }
+
+        .shell {
+            width: min(1180px, calc(100vw - 32px));
+            margin: 0 auto;
+            padding: 32px 0 48px;
+        }
+
+        .hero {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: flex-start;
+            margin-bottom: 18px;
+        }
+
+        .eyebrow {
+            color: var(--blue);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 4px 0 6px;
+            font-size: clamp(28px, 4vw, 42px);
+            line-height: 1.1;
+        }
+
+        .subtitle {
+            margin: 0;
+            color: var(--muted);
+            max-width: 720px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .button {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--panel-soft);
+            color: var(--text);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-height: 36px;
+            padding: 8px 12px;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .button:hover,
+        .button:focus {
+            border-color: var(--blue);
+            outline: none;
+        }
+
+        .button.primary {
+            background: #1f6feb;
+            border-color: #388bfd;
+            color: #fff;
+        }
+
+        .source-card,
+        .panel,
+        .check-card {
+            background: rgba(22, 27, 34, 0.92);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .source-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            padding: 14px;
+            margin-bottom: 18px;
+        }
+
+        .source-card label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .source-card input {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #0d1117;
+            color: var(--text);
+            font-family: Consolas, Monaco, "Courier New", monospace;
+            padding: 9px 10px;
+        }
+
+        .status-banner {
+            border-radius: 14px;
+            margin-bottom: 18px;
+            padding: 18px;
+        }
+
+        .status-banner.healthy {
+            background: rgba(63, 185, 80, 0.12);
+            border: 1px solid rgba(63, 185, 80, 0.35);
+        }
+
+        .status-banner.unhealthy {
+            background: rgba(248, 81, 73, 0.12);
+            border: 1px solid rgba(248, 81, 73, 0.35);
+        }
+
+        .status-title {
+            align-items: center;
+            display: flex;
+            gap: 10px;
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .status-dot {
+            border-radius: 50%;
+            display: inline-block;
+            height: 14px;
+            width: 14px;
+        }
+
+        .status-dot.healthy { background: var(--green); box-shadow: 0 0 0 6px rgba(63, 185, 80, 0.16); }
+        .status-dot.unhealthy { background: var(--red); box-shadow: 0 0 0 6px rgba(248, 81, 73, 0.16); }
+
+        .info-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            margin-bottom: 18px;
+        }
+
+        .info-item {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            min-width: 0;
+        }
+
+        .info-label {
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .info-value {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .panel {
+            margin-top: 18px;
+            padding: 18px;
+        }
+
+        .panel h2 {
+            font-size: 18px;
+            margin: 0 0 12px;
+        }
+
+        .checks-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .check-card {
+            box-shadow: none;
+            overflow: hidden;
+        }
+
+        .check-card.healthy { border-color: rgba(63, 185, 80, 0.45); }
+        .check-card.unhealthy { border-color: rgba(248, 81, 73, 0.50); }
+
+        .check-header {
+            align-items: center;
+            background: var(--panel-soft);
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+        }
+
+        .check-name {
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+
+        .check-body { padding: 12px; }
+
+        .metric {
+            color: var(--muted);
+            font-family: Consolas, Monaco, "Courier New", monospace;
+        }
+
+        .tag-title {
+            color: var(--blue);
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            margin: 22px 0 10px;
+            text-transform: uppercase;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid var(--border);
+            padding: 9px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        td:last-child {
+            overflow-wrap: anywhere;
+        }
+
+        pre {
+            background: #090c10;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            max-height: 460px;
+            overflow: auto;
+            padding: 14px;
+        }
+
+        .error {
+            background: rgba(248, 81, 73, 0.12);
+            border: 1px solid rgba(248, 81, 73, 0.38);
+            border-radius: 12px;
+            color: #ffdcd7;
+            padding: 16px;
+        }
+
+        .muted { color: var(--muted); }
+
+        @media (max-width: 720px) {
+            .hero,
+            .source-card {
+                grid-template-columns: 1fr;
+                display: grid;
+            }
+
+            .actions {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <section class="hero">
+            <div>
+                <div class="eyebrow">SQL Commander</div>
+                <h1>Data API Health Report</h1>
+                <p class="subtitle">A readable view of the Data API Builder health endpoint, with the raw JSON kept one click away for developers.</p>
+            </div>
+            <div class="actions">
+                <button type="button" class="button primary" id="refreshButton">Refresh</button>
+                <a class="button" id="rawJsonLink" target="_blank" rel="noopener noreferrer">Raw JSON</a>
+            </div>
+        </section>
+
+        <section class="source-card" aria-label="Health endpoint source">
+            <div>
+                <label for="healthUrl">Health endpoint</label>
+                <input id="healthUrl" type="url" spellcheck="false">
+            </div>
+            <button type="button" class="button" id="loadButton">Load</button>
+        </section>
+
+        <div id="message" class="muted">Loading health data…</div>
+        <section id="report" hidden></section>
+    </main>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const input = document.getElementById('healthUrl');
+        const report = document.getElementById('report');
+        const message = document.getElementById('message');
+        const rawJsonLink = document.getElementById('rawJsonLink');
+        const initialUrl = params.get('url') || '/data-api/health';
+
+        input.value = new URL(initialUrl, window.location.href).toString();
+        rawJsonLink.href = input.value;
+
+        document.getElementById('refreshButton').addEventListener('click', () => fetchAndRender(input.value));
+        document.getElementById('loadButton').addEventListener('click', () => fetchAndRender(input.value));
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                fetchAndRender(input.value);
+            }
+        });
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatValue(value) {
+            if (value === true) return '✅ true';
+            if (value === false) return '❌ false';
+            if (value === null || value === undefined) return '-';
+            if (typeof value === 'object') return JSON.stringify(value);
+            return String(value);
+        }
+
+        function statusClass(status) {
+            return String(status || '').toLowerCase() === 'healthy' ? 'healthy' : 'unhealthy';
+        }
+
+        async function fetchAndRender(url) {
+            const resolvedUrl = new URL(url, window.location.href).toString();
+            input.value = resolvedUrl;
+            rawJsonLink.href = resolvedUrl;
+            report.hidden = true;
+            message.className = 'muted';
+            message.textContent = 'Loading health data…';
+
+            try {
+                const response = await fetch(resolvedUrl, { headers: { 'Accept': 'application/json' } });
+                const text = await response.text();
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText || 'Unable to load health endpoint'}`);
+                }
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (error) {
+                    throw new Error(`Invalid JSON response: ${error.message}`);
+                }
+
+                renderReport(data, resolvedUrl);
+                message.textContent = '';
+            } catch (error) {
+                report.hidden = true;
+                message.className = 'error';
+                message.innerHTML = `<strong>Could not load health data.</strong><br>${escapeHtml(error.message)}`;
+            }
+        }
+
+        function renderReport(data, url) {
+            const checkedAt = new Date().toLocaleString();
+            const currentStatus = data?.status || 'Unknown';
+            const currentStatusClass = statusClass(currentStatus);
+            const checks = Array.isArray(data?.checks) ? data.checks : [];
+            const groupedChecks = groupChecks(checks);
+            const rawJson = JSON.stringify(data, null, 2);
+
+            const infoCards = [
+                ['App Name', data?.['app-name'] || 'Data API Builder'],
+                ['Version', data?.version || '-'],
+                ['Checked', checkedAt],
+                ['Source', url]
+            ].map(([label, value]) => `
+                <div class="info-item">
+                    <div class="info-label">${escapeHtml(label)}</div>
+                    <div class="info-value" title="${escapeHtml(value)}">${label === 'Source'
+                        ? `<a href="${escapeHtml(value)}" target="_blank" rel="noopener noreferrer">${escapeHtml(value)}</a>`
+                        : escapeHtml(value)}</div>
+                </div>`).join('');
+
+            const configurationSection = data?.configuration
+                ? `<section class="panel">
+                    <h2>Configuration</h2>
+                    <table>
+                        <thead><tr><th>Key</th><th>Value</th></tr></thead>
+                        <tbody>${Object.entries(data.configuration).map(([key, value]) => `
+                            <tr><td>${escapeHtml(key)}</td><td>${escapeHtml(formatValue(value))}</td></tr>`).join('')}</tbody>
+                    </table>
+                </section>`
+                : '';
+
+            const checksSection = Object.keys(groupedChecks).length
+                ? `<section class="panel">
+                    <h2>Checks</h2>
+                    ${Object.entries(groupedChecks).map(([tag, tagChecks]) => `
+                        <div class="tag-title">${escapeHtml(tag)}</div>
+                        <div class="checks-grid">
+                            ${tagChecks.map(renderCheck).join('')}
+                        </div>`).join('')}
+                </section>`
+                : `<section class="panel"><h2>Checks</h2><p class="muted">No component checks were returned by this health endpoint.</p></section>`;
+
+            report.innerHTML = `
+                <section class="status-banner ${currentStatusClass}">
+                    <div class="status-title"><span class="status-dot ${currentStatusClass}"></span>Status: ${escapeHtml(currentStatus)}</div>
+                    <div class="muted">${checks.length} check${checks.length === 1 ? '' : 's'} returned.</div>
+                </section>
+                <section class="info-grid">${infoCards}</section>
+                ${configurationSection}
+                ${checksSection}
+                <section class="panel">
+                    <h2>Raw response preview</h2>
+                    <pre>${escapeHtml(rawJson)}</pre>
+                </section>`;
+            report.hidden = false;
+        }
+
+        function groupChecks(checks) {
+            const groups = {};
+            for (const check of checks) {
+                const tags = Array.isArray(check.tags) ? check.tags.filter(tag => String(tag).toLowerCase() !== 'endpoint') : [];
+                const targetTags = tags.length ? tags : ['Other'];
+                for (const tag of targetTags) {
+                    const key = String(tag);
+                    groups[key] ??= [];
+                    groups[key].push(check);
+                }
+            }
+            return groups;
+        }
+
+        function renderCheck(check) {
+            const checkStatusClass = statusClass(check.status);
+            const responseMs = check?.data?.['response-ms'] ?? '-';
+            const thresholdMs = check?.data?.['threshold-ms'] ?? '-';
+            const exception = check.exception ? `<div class="error">${escapeHtml(check.exception)}</div>` : '';
+            const dataRows = check.data && typeof check.data === 'object'
+                ? Object.entries(check.data)
+                    .filter(([key]) => key !== 'response-ms' && key !== 'threshold-ms')
+                    .map(([key, value]) => `<div class="metric">${escapeHtml(key)}: ${escapeHtml(formatValue(value))}</div>`)
+                    .join('')
+                : '';
+
+            return `
+                <article class="check-card ${checkStatusClass}">
+                    <div class="check-header">
+                        <span class="check-name">${escapeHtml(check.name || 'Unnamed check')}</span>
+                        <span>${checkStatusClass === 'healthy' ? '✅' : '❌'}</span>
+                    </div>
+                    <div class="check-body">
+                        <div class="metric">${escapeHtml(responseMs)}ms / ${escapeHtml(thresholdMs)}ms</div>
+                        ${dataRows}
+                        ${exception}
+                    </div>
+                </article>`;
+        }
+
+        fetchAndRender(input.value);
+    </script>
+</body>
+</html>

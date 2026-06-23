@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SQL Commander database icon">
+  <defs>
+    <linearGradient id="db-blue" x1="12" y1="6" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5cc8ff"/>
+      <stop offset="0.5" stop-color="#1f8fff"/>
+      <stop offset="1" stop-color="#0068d9"/>
+    </linearGradient>
+    <linearGradient id="db-top" x1="18" y1="8" x2="46" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9f4ff"/>
+      <stop offset="1" stop-color="#67c7ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="2" stdDeviation="1.4" flood-color="#004b91" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <path d="M11 18c0-6.6 9.4-12 21-12s21 5.4 21 12v28c0 6.6-9.4 12-21 12s-21-5.4-21-12V18Z" fill="url(#db-blue)" stroke="#005fb8" stroke-width="2"/>
+    <ellipse cx="32" cy="18" rx="21" ry="12" fill="url(#db-top)" stroke="#005fb8" stroke-width="2"/>
+    <ellipse cx="32" cy="18" rx="14.5" ry="6.4" fill="#ffffff" opacity="0.32"/>
+    <path d="M11 28c0 6.6 9.4 12 21 12s21-5.4 21-12" fill="none" stroke="#b8e7ff" stroke-width="3.2" stroke-linecap="round" opacity="0.82"/>
+    <path d="M11 40c0 6.6 9.4 12 21 12s21-5.4 21-12" fill="none" stroke="#b8e7ff" stroke-width="3.2" stroke-linecap="round" opacity="0.82"/>
+  </g>
+</svg>

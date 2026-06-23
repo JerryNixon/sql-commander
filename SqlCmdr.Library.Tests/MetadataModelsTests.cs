@@ -498,6 +498,50 @@ public class MetadataModelsTests
     }
 
     [Fact]
+    public void AppSettings_FromConnectionString_WithSsmsStyleAliases_ParsesExtendedProperties()
+    {
+        // Arrange
+        var connectionString = "Data Source=localhost;Initial Catalog=master;User ID=sa;Password=UnitTestPassword!;Pooling=False;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;Application Name=\"SQL Server Management Studio\";Command Timeout=0";
+
+        // Act
+        var parsed = AppSettings.FromConnectionString(connectionString);
+
+        // Assert
+        parsed.Server.Should().Be("localhost");
+        parsed.Database.Should().Be("master");
+        parsed.UserId.Should().Be("sa");
+        parsed.Password.Should().Be("UnitTestPassword!");
+        parsed.Pooling.Should().BeFalse();
+        parsed.MultipleActiveResultSets.Should().BeFalse();
+        parsed.Encrypt.Should().Be("Mandatory");
+        parsed.TrustServerCertificate.Should().BeTrue();
+        parsed.ApplicationName.Should().Be("SQL Server Management Studio");
+        parsed.CommandTimeout.Should().Be(0);
+    }
+
+    [Fact]
+    public void AppSettings_FromConnectionString_WithPersistSecurityInfo_IgnoresKeywordAndPreservesSettings()
+    {
+        // Arrange
+        var connectionString = "Data Source=localhost;Initial Catalog=master;Persist Security Info=True;User ID=sa;Password=UnitTestPassword!;Pooling=False;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=True;Application Name=\"SQL Server Management Studio\";Command Timeout=0";
+
+        // Act
+        var parsed = AppSettings.FromConnectionString(connectionString).Normalize();
+
+        // Assert
+        parsed.Server.Should().Be("localhost");
+        parsed.Database.Should().Be("master");
+        parsed.UserId.Should().Be("sa");
+        parsed.Password.Should().Be("UnitTestPassword!");
+        parsed.Pooling.Should().BeFalse();
+        parsed.MultipleActiveResultSets.Should().BeFalse();
+        parsed.Encrypt.Should().Be("Mandatory");
+        parsed.TrustServerCertificate.Should().BeTrue();
+        parsed.ApplicationName.Should().Be("SQL Server Management Studio");
+        parsed.CommandTimeout.Should().Be(0);
+    }
+
+    [Fact]
     public void AppSettings_ToConnectionString_ForAzureDefault_RemovesAuthenticationKeyword()
     {
         // Arrange
@@ -604,7 +648,7 @@ public class MetadataModelsTests
         // Assert
         settings.Should().NotBeNull();
         settings.Server.Should().BeEmpty();
-        settings.Database.Should().BeEmpty();
+        settings.Database.Should().Be("annalaura");
         settings.DefaultResultLimit.Should().Be(100);
     }
 
@@ -617,7 +661,7 @@ public class MetadataModelsTests
         // Assert
         settings.Should().NotBeNull();
         settings.Server.Should().BeEmpty();
-        settings.Database.Should().BeEmpty();
+        settings.Database.Should().Be("annalaura");
     }
 
     [Theory]
@@ -662,14 +706,18 @@ public class MetadataModelsTests
 
         // Assert
         settings.Server.Should().BeEmpty();
-        settings.Database.Should().BeEmpty();
+        settings.Database.Should().Be("annalaura");
         settings.UserId.Should().BeEmpty();
         settings.Password.Should().BeEmpty();
         settings.DefaultResultLimit.Should().Be(100);
         settings.TrustServerCertificate.Should().BeTrue();
         settings.ConnectionTimeout.Should().Be(30);
         settings.ConfirmActions.Should().BeFalse();
+        settings.PromptWhenOverwritingEditorContent.Should().BeFalse();
         settings.Theme.Should().Be("dark");
+        settings.DataApiRestEnabled.Should().BeTrue();
+        settings.DataApiGraphQLEnabled.Should().BeTrue();
+        settings.DataApiMcpEnabled.Should().BeTrue();
     }
 
     #endregion

@@ -44,7 +44,7 @@ public class SettingsServiceTests
         settings.Should().NotBeNull();
         settings.DefaultResultLimit.Should().Be(100);
         settings.Server.Should().BeEmpty();
-        settings.Database.Should().BeEmpty();
+        settings.Database.Should().Be("annalaura");
     }
 
     [Fact]
@@ -73,6 +73,7 @@ public class SettingsServiceTests
         settings.TrustServerCertificate.Should().BeTrue();
         settings.ConnectionTimeout.Should().Be(30);
         settings.ConfirmActions.Should().BeFalse();
+        settings.PromptWhenOverwritingEditorContent.Should().BeFalse();
         settings.Theme.Should().Be("dark");
     }
 }

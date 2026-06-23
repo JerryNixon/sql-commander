@@ -1,0 +1,7 @@
+CREATE TABLE dbo.TodoCategory
+(
+    Id INT NOT NULL PRIMARY KEY,
+    Name NVARCHAR(100) NOT NULL,
+    Color NVARCHAR(20) NULL,
+    SortOrder INT NOT NULL CONSTRAINT DF_TodoCategory_SortOrder DEFAULT (0)
+);

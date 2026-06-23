@@ -63,3 +63,52 @@ BEGIN
       (28,1),(29,10),(30,1),(31,1),(32,2),(33,11),(34,1),(35,1),(36,1),(37,1);
 END
 GO
+
+-- Seed todo demo data only if TodoCategory is empty. These related tables make the diagram feature more interesting.
+IF OBJECT_ID(N'dbo.TodoCategory', N'U') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM dbo.TodoCategory)
+BEGIN
+    PRINT 'Seeding todo demo data...';
+
+    INSERT INTO dbo.TodoCategory (Id, Name, Color, SortOrder) VALUES
+      (1, N'Home', N'#4f46e5', 1),
+      (2, N'Work', N'#0891b2', 2),
+      (3, N'Errands', N'#f97316', 3),
+      (4, N'Learning', N'#16a34a', 4);
+
+    INSERT INTO dbo.TodoList (Id, CategoryId, Name, Description, CreatedAt) VALUES
+      (1, 1, N'Weekend Reset', N'Household tasks to make Monday less dramatic.', '2026-06-01T09:00:00'),
+      (2, 2, N'SQL Commander Demo', N'Polish the demo flow for schema exploration.', '2026-06-02T10:30:00'),
+      (3, 3, N'Groceries', N'Things to pick up around town.', '2026-06-03T08:15:00'),
+      (4, 4, N'Database Practice', N'Small relational modeling exercises.', '2026-06-04T14:00:00');
+
+    INSERT INTO dbo.TodoTag (Id, Name, Color) VALUES
+      (1, N'urgent', N'#dc2626'),
+      (2, N'demo', N'#9333ea'),
+      (3, N'blocked', N'#64748b'),
+      (4, N'quick win', N'#22c55e'),
+      (5, N'follow-up', N'#0ea5e9');
+
+    INSERT INTO dbo.TodoItem (Id, TodoListId, ParentTodoItemId, Title, Notes, DueDate, Priority, IsCompleted, CreatedAt, CompletedAt) VALUES
+      (1, 1, NULL, N'Clean kitchen', N'Counters, sink, and floors.', '2026-06-22', 2, 0, '2026-06-01T09:05:00', NULL),
+      (2, 1, 1, N'Empty dishwasher', N'Put everything back where future you can find it.', '2026-06-22', 3, 1, '2026-06-01T09:10:00', '2026-06-01T09:40:00'),
+      (3, 1, 1, N'Take out recycling', NULL, '2026-06-22', 2, 0, '2026-06-01T09:15:00', NULL),
+      (4, 2, NULL, N'Create todo diagram demo', N'Add related tables with categories, lists, items, and tags.', '2026-06-23', 1, 0, '2026-06-02T10:35:00', NULL),
+      (5, 2, 4, N'Refresh metadata', N'Confirm tables appear in SQL Commander.', '2026-06-23', 2, 0, '2026-06-02T10:45:00', NULL),
+      (6, 2, 4, N'Open diagram', N'Use the Diagram button under the tree pane.', '2026-06-23', 2, 0, '2026-06-02T10:50:00', NULL),
+      (7, 3, NULL, N'Buy coffee', N'Essential operational dependency.', '2026-06-21', 1, 1, '2026-06-03T08:20:00', '2026-06-03T09:05:00'),
+      (8, 3, NULL, N'Pick up fruit', N'Apples, bananas, and berries.', '2026-06-21', 3, 0, '2026-06-03T08:25:00', NULL),
+      (9, 4, NULL, N'Model many-to-many relationships', N'Use TodoItemTag as the bridge table.', '2026-06-24', 2, 0, '2026-06-04T14:05:00', NULL),
+      (10, 4, 9, N'Add self-referencing task', N'ParentTodoItemId demonstrates hierarchy.', '2026-06-24', 2, 0, '2026-06-04T14:10:00', NULL);
+
+    INSERT INTO dbo.TodoItemTag (TodoItemId, TodoTagId) VALUES
+      (1, 4),
+      (3, 5),
+      (4, 1), (4, 2),
+      (5, 2), (5, 5),
+      (6, 2),
+      (7, 4),
+      (9, 2),
+      (10, 2), (10, 5);
+END
+GO

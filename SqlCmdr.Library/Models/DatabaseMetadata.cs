@@ -9,6 +9,7 @@ public record DatabaseMetadata
     private readonly List<StoredProcedureMetadata> _storedProcedures = [];
     private readonly List<ForeignKeyMetadata> _foreignKeys = [];
 
+    public ConnectionMetadata Connection { get; set; } = new();
     public IReadOnlyList<TableMetadata> Tables => _tables;
     public IReadOnlyList<ViewMetadata> Views => _views;
     public IReadOnlyList<StoredProcedureMetadata> StoredProcedures => _storedProcedures;
@@ -20,6 +21,18 @@ public record DatabaseMetadata
     public List<ForeignKeyMetadata> ForeignKeysInternal => _foreignKeys;
 }
 
+public record ConnectionMetadata
+{
+    public string ServerName { get; init; } = string.Empty;
+    public string DatabaseName { get; init; } = string.Empty;
+    public string UserName { get; init; } = string.Empty;
+    public string ProductVersion { get; init; } = string.Empty;
+    public string ProductLevel { get; init; } = string.Empty;
+    public string Edition { get; init; } = string.Empty;
+    public string Version { get; init; } = string.Empty;
+    public string VersionShort { get; init; } = string.Empty;
+}
+
 public record ForeignKeyMetadata
 {
     public required string Name { get; init; }
@@ -29,6 +42,7 @@ public record ForeignKeyMetadata
     public required string ReferencedSchema { get; init; }
     public required string ReferencedTable { get; init; }
     public required string ReferencedColumn { get; init; }
+    public int ConstraintColumnId { get; init; }
 }
 
 public record TableMetadata
@@ -76,6 +90,7 @@ public record ColumnMetadata
     public required string Name { get; init; }
     public required string DataType { get; init; }
     public bool IsNullable { get; init; }
+    public bool IsPrimaryKey { get; init; }
     public int? MaxLength { get; init; }
     public int? Precision { get; init; }
     public int? Scale { get; init; }

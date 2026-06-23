@@ -7,7 +7,4 @@
   <ItemGroup>
     <ProjectReference Include="..\SqlCmdr.Library\SqlCmdr.Library.csproj" />
   </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Services\" />
-  </ItemGroup>
 </Project>
