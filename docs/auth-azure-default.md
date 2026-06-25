@@ -1,3 +1,8 @@
+---
+layout: default
+title: Azure Default Credential authentication
+---
+
 # Azure Default Credential authentication
 
 SQL Commander supports Microsoft Entra authentication to Azure SQL by using **Azure Default Credential**. This is the best local-development option when you do not want to use SQL usernames and passwords.

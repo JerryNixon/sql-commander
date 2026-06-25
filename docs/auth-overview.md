@@ -1,3 +1,8 @@
+---
+layout: default
+title: Authentication overview
+---
+
 # Authentication overview
 
 SQL Commander supports three SQL Server connection authentication choices.
@@ -14,13 +19,13 @@ Data Source=localhost;Initial Catalog=master;User ID=sa;Password=<password>;Encr
 
 Use this for local development against Azure SQL without storing a database password. SQL Commander uses Azure Identity to acquire an Entra token from tools such as Azure CLI or Visual Studio.
 
-See [Azure Default Credential authentication](auth-azure-default.md).
+See [Azure Default Credential authentication](auth-azure-default.html).
 
 ## Azure Managed Identity
 
 Use this when SQL Commander runs in Azure and should connect to Azure SQL without secrets.
 
-See [Managed Identity authentication](auth-managed-identity.md).
+See [Managed Identity authentication](auth-managed-identity.html).
 
 ## Recommendation
 

@@ -2,6 +2,8 @@
 
 A lightweight web-based SQL Server management tool for developers who need quick database exploration, query execution, and script generation without the overhead of full-featured database management tools.
 
+📚 Documentation site: [jerrynixon.github.io/sql-commander](https://jerrynixon.github.io/sql-commander/)
+
 ## What is SQL Commander?
 
 SQL Commander provides a single-page interface for:
@@ -9,27 +11,22 @@ SQL Commander provides a single-page interface for:
 - Executing SQL queries with real-time feedback
 - Generating CREATE, SELECT, and DROP scripts
 - Exporting database metadata as JSON
+- Previewing Data API Builder configs for selected database objects
 - **Azure Default Credential support** for passwordless authentication
 
-Perfect for:
-- Quick database exploration during development
-- Ad-hoc query execution
-- Learning SQL Server schema structures
-- Lightweight alternative to SSMS for simple tasks
-- Running in Azure with managed identity authentication
-
-## Getting Started (Local Dev)
-
-Prerequisites:
-- .NET 8 SDK
-- Visual Studio 2022 or VS Code
-- SQL Server (local or remote)
-
-Press F5 to launch with .NET Aspire orchestration.
-
-## Container Usage
+## Quick start
 
 Image: `jerrynixon/sql-commander`
+
+Run SQL Commander with Docker:
+
+```bash
+docker run -p 8080:8080 jerrynixon/sql-commander:latest
+```
+
+Then open `http://localhost:8080` and configure a SQL Server connection.
+
+## Container usage
 
 ### Connecting to a Local SQL Server
 
@@ -107,7 +104,7 @@ This is ideal for running in Azure Container Instances, Azure Container Apps, AK
 
 ## Authentication
 
-SQL Cmdr supports two authentication modes (configurable via the settings modal):
+SQL Cmdr supports three authentication choices in the settings modal:
 
 ### SQL Authentication
 Traditional username/password authentication:
@@ -122,7 +119,10 @@ Passwordless authentication using Azure identity:
 - Database: `mydb`
 - No credentials required
 
-The UI automatically detects and uses the appropriate authentication method. When running in Azure with managed identity, no password management is needed.
+### Azure Managed Identity
+Passwordless authentication for Azure-hosted SQL Commander instances with managed identity enabled.
+
+See the [documentation site](https://jerrynixon.github.io/sql-commander/) for Data API and authentication workflow details.
 
 ## Architecture
 - ASP.NET Core 8 Razor Pages

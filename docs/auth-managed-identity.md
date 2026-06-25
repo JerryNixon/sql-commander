@@ -1,3 +1,8 @@
+---
+layout: default
+title: Managed Identity authentication
+---
+
 # Managed Identity authentication
 
 SQL Commander supports Azure SQL authentication with **system-assigned managed identity** when SQL Commander is hosted in Azure.

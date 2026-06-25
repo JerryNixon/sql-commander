@@ -63,9 +63,9 @@ public class IndexModel : PageModel
             return BadRequest(new { success = false, errorMessage = "Invalid settings data" });
         }
 
-        var saved = await _settingsService.SaveSettingsAsync(settings);
+        var saved = settings.Normalize();
         WriteSettingsCookie(saved);
-        return new JsonResult(new { success = true, settings = saved });
+        return await Task.FromResult(new JsonResult(new { success = true, settings = saved }));
     }
 
     public IActionResult OnPostParseConnectionString([FromBody] JsonElement request)
@@ -281,7 +281,7 @@ public class IndexModel : PageModel
         var cookieSettings = TryReadSettingsCookie();
         if (cookieSettings is not null)
         {
-            return await _settingsService.SaveSettingsAsync(cookieSettings).ConfigureAwait(false);
+            return cookieSettings;
         }
 
         return await _settingsService.GetSettingsAsync().ConfigureAwait(false);

@@ -1,3 +1,8 @@
+---
+layout: default
+title: SQL Commander auth validation notes
+---
+
 # SQL Commander auth validation notes
 
 This document records the auth validation scenarios for SQL Commander.

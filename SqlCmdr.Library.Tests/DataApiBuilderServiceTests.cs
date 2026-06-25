@@ -2,6 +2,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using SqlCmdr.Models;
 using SqlCmdr.Services;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 
 namespace SqlCmdr.Tests;
@@ -228,6 +230,19 @@ public class DataApiBuilderServiceTests
 
         result.Success.Should().BeTrue(result.ErrorMessage);
         runner.Commands.Should().NotContain(command => command.Contains("--relationship"));
+    }
+
+    [Fact]
+    public void GetAvailableDataApiPort_WhenPreferredPortIsInUse_ReturnsDifferentOpenPort()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var preferredPort = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        var port = DataApiBuilderService.GetAvailableDataApiPort(preferredPort);
+
+        port.Should().NotBe(preferredPort);
+        port.Should().BeInRange(1, 65535);
     }
 
     static TableMetadata CreateTable(string schema, string name, params (string Name, string DataType, bool IsPrimaryKey)[] columns)

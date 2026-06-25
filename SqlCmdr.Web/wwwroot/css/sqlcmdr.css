@@ -460,15 +460,45 @@ body {
     padding: 8px;
 }
 
-.tree-options input {
+.tree-options-label {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    min-width: 0;
+}
+
+.tree-options-label input {
     flex: 0 0 auto;
 }
 
-.tree-options span {
+.tree-options-label span {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.tree-refresh-button {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 2px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding: 3px 0 3px 8px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.tree-refresh-button:hover {
+    color: var(--text-primary);
+}
+
+.tree-refresh-button:disabled {
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.75;
 }
 
 .schema-download {

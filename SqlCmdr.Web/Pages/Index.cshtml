@@ -26,13 +26,16 @@
                 <div class="tree-container" id="treeContainer" role="tree" aria-label="Database schema tree" data-i18n-aria-label="databaseSchemaTree">
                     <div class="loading" data-i18n="loadingMetadata">Loading metadata...</div>
                 </div>
-                <label class="tree-options">
-                    <input type="checkbox" id="showUserObjectsOnly" checked onchange="app.toggleUserObjectsOnly(this.checked)">
-                    <span data-i18n="showUserObjectsOnly">Show user objects only</span>
-                </label>
+                <div class="tree-options">
+                    <label class="tree-options-label">
+                        <input type="checkbox" id="showUserObjectsOnly" checked onchange="app.toggleUserObjectsOnly(this.checked)">
+                        <span data-i18n="showUserObjectsOnly">Show user objects only</span>
+                    </label>
+                    <button id="refreshMetadataBtn" class="tree-refresh-button" type="button" data-i18n="refresh">Refresh</button>
+                </div>
                 <div class="schema-download">
                     <button id="settingsTreeBtn" class="schema-settings-button" type="button" title="Settings (Ctrl+,)" onclick="app.navigateTo('/app/settings/app')" data-i18n-title="settingsTitle"><span aria-hidden="true">⚙</span><span data-i18n="settings">Settings</span></button>
-                    <button id="refreshMetadataBtn" type="button" data-i18n="refresh">Refresh</button>
+                    <button id="dataApiBuilderBtn" type="button" title="Data API (Ctrl+Shift+D)" data-i18n="dataApi" data-i18n-title="dataApiTitle">Data API</button>
                     <button id="viewSchemaBtn" type="button" title="Diagram (Ctrl+Shift+S)" data-i18n="viewSchema" data-i18n-title="diagramTitle">Diagram</button>
                 </div>
                 <button id="collapsedSettingsBtn" class="collapsed-settings-button" type="button" title="Settings (Ctrl+,)" aria-label="Settings" onclick="app.navigateTo('/app/settings/app')" data-i18n-title="settingsTitle" data-i18n-aria-label="settings">⚙</button>

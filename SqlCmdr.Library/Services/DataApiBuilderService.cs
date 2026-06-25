@@ -3,6 +3,8 @@ using SqlCmdr.Abstractions;
 using SqlCmdr.Models;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -123,7 +125,8 @@ public sealed class DataApiBuilderService : IDataApiBuilderService
         GeneratedDabConfig? generated = null;
         try
         {
-            var options = DataApiOptions.From(settings, request.RestEnabled, request.GraphQLEnabled, request.McpEnabled);
+            var options = DataApiOptions.From(settings, request.RestEnabled, request.GraphQLEnabled, request.McpEnabled)
+                with { Port = GetAvailableDataApiPort(DefaultDataApiPort) };
             generated = await GenerateConfigFileAsync(settings, metadata, request.Selections, options, cancellationToken).ConfigureAwait(false);
             var diagnostics = generated.Diagnostics;
             var baseUrl = BuildBaseUrl(options.Port);
@@ -932,6 +935,32 @@ public sealed class DataApiBuilderService : IDataApiBuilderService
     }
 
     static string BuildBaseUrl(int port) => $"http://127.0.0.1:{port}";
+
+    internal static int GetAvailableDataApiPort(int preferredPort)
+    {
+        if (IsLoopbackPortAvailable(preferredPort))
+        {
+            return preferredPort;
+        }
+
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
+    static bool IsLoopbackPortAvailable(int port)
+    {
+        try
+        {
+            using var listener = new TcpListener(IPAddress.Loopback, port);
+            listener.Start();
+            return true;
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+    }
 
     static string CombineUrl(string baseUrl, string path) => $"{baseUrl.TrimEnd('/')}/{path.TrimStart('/')}";
 

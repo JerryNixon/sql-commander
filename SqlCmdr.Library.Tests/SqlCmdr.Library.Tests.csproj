@@ -14,5 +14,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SqlCmdr.Library\SqlCmdr.Library.csproj" />
+    <ProjectReference Include="..\SqlCmdr.Web\SqlCmdr.Web.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 </Project>
