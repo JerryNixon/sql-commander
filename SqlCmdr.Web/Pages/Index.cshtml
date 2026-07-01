@@ -2694,11 +2694,13 @@
                     document.getElementById('statusTime').textContent = `${(elapsed / 1000).toFixed(1)}s`;
                 }, 100);
 
+                this.queryAbortController = new AbortController();
                 try {
                     const response = await fetch('?handler=ExecuteQuery', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ sql })
+                        body: JSON.stringify({ sql }),
+                        signal: this.queryAbortController.signal
                     });
 
                     // If query was cancelled, don't process results
@@ -2787,7 +2789,18 @@
                 document.getElementById('resultsContainer').innerHTML = 
                     '<div style="color: var(--text-secondary); font-size: 13px;">Query cancelled by user.</div>';
                 
-                // Send cancellation request to server (fire and forget)
+                // Abort the in-flight request so the server stops the running query.
+                // Aborting the fetch drops the connection, which raises HttpContext.RequestAborted
+                // on the server and cancels the executing SqlCommand.
+                if (this.queryAbortController) {
+                    try {
+                        this.queryAbortController.abort();
+                    } catch (error) {
+                        console.error('Cancel query abort error:', error);
+                    }
+                }
+
+                // Best-effort server-side cancel signal (fire and forget)
                 try {
                     fetch('?handler=CancelQuery', { method: 'POST' }).catch(err => {
                         console.error('Cancel query server request failed:', err);
