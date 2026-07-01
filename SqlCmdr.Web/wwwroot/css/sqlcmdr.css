@@ -313,6 +313,18 @@ body {
     margin-left: 2px;
 }
 
+.tree-non-user-icon {
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    margin-left: 2px;
+}
+
 .tree-icon {
     width: 16px;
     min-width: 16px;
@@ -660,6 +672,15 @@ body {
     display: flex;
     gap: 4px;
     align-items: center;
+    margin-left: auto;
+}
+
+.app-version {
+    color: var(--text-muted);
+    flex: 0 0 auto;
+    font-size: 12px;
+    line-height: 26px;
+    white-space: nowrap;
 }
 
 .editor-toolbar button {
@@ -679,9 +700,19 @@ body {
     line-height: 1.4;
 }
 
+.toolbar-button-icon {
+    align-items: center;
+    display: inline-flex;
+    flex: 0 0 auto;
+    justify-content: center;
+    margin-inline-end: 8px;
+    min-width: 12px;
+}
+
 .editor-toolbar button.execute {
     background: var(--accent-blue);
     color: white;
+    gap: 8px;
 }
 
 .editor-toolbar button.execute:hover:not(:disabled) {
@@ -693,6 +724,33 @@ body {
     color: var(--text-muted);
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+.editor-toolbar button.format {
+    background: var(--button-secondary);
+    color: var(--text-primary);
+    gap: 8px;
+    min-width: 82px;
+}
+
+.editor-toolbar button.format:hover:not(:disabled) {
+    background: var(--button-secondary-hover);
+}
+
+.editor-toolbar button.format-success {
+    background: color-mix(in srgb, var(--accent-green) 36%, var(--button-secondary));
+    color: var(--text-primary);
+}
+
+.editor-toolbar button.format-info {
+    background: color-mix(in srgb, var(--accent-blue) 24%, var(--button-secondary));
+    color: var(--text-primary);
+}
+
+.editor-toolbar button.format-error {
+    background: var(--error-bg);
+    border-color: var(--error-border);
+    color: var(--accent-red);
 }
 
 .editor-toolbar button.cancel {
@@ -1532,6 +1590,21 @@ textarea {
     justify-content: space-between;
 }
 
+.modal-title-with-version {
+    align-items: baseline;
+    display: inline-flex;
+    gap: 8px;
+    min-width: 0;
+}
+
+.dab-cli-version {
+    color: var(--text-muted);
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
 .modal-description {
     color: var(--text-secondary);
     margin-bottom: 12px;
@@ -2278,6 +2351,101 @@ textarea {
     margin: 12px;
 }
 
+.query-error-card {
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 12px;
+    max-width: 980px;
+    padding: 16px;
+}
+
+.query-error-header {
+    align-items: flex-start;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.query-error-kicker,
+.query-error-label {
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.query-error-title {
+    color: var(--accent-red);
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 2px;
+}
+
+.query-error-code {
+    border: 1px solid var(--error-border);
+    border-radius: 999px;
+    color: var(--text-muted);
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 6px;
+    padding: 1px 7px;
+    vertical-align: middle;
+}
+
+.query-error-section {
+    margin-top: 12px;
+}
+
+.query-error-message {
+    margin-top: 3px;
+    white-space: pre-wrap;
+}
+
+.query-error-steps {
+    margin: 6px 0 0 18px;
+    padding: 0;
+}
+
+.query-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.query-error-details {
+    border-top: 1px solid var(--border-color);
+    margin-top: 14px;
+    padding-top: 10px;
+}
+
+.query-error-details summary {
+    color: var(--text-muted);
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.query-error-details pre {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    margin: 8px 0 0;
+    max-height: 260px;
+    overflow: auto;
+    padding: 10px;
+    white-space: pre-wrap;
+}
+
 .connection-message,
 .connection-error {
     margin: 12px;
@@ -2562,6 +2730,10 @@ textarea {
     .schema-download,
     .modal-actions {
         flex-wrap: wrap;
+    }
+
+    .app-version {
+        display: none;
     }
 
     .status-bar {

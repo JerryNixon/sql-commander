@@ -7,7 +7,7 @@ COPY Directory.Build.props .
 COPY SqlCmdr.Library/SqlCmdr.Library.csproj SqlCmdr.Library/
 COPY SqlCmdr.Web/SqlCmdr.Web.csproj SqlCmdr.Web/
 RUN dotnet restore SqlCmdr.Web/SqlCmdr.Web.csproj
-RUN dotnet tool install --tool-path /dab-tools Microsoft.DataApiBuilder --version 2.0.8
+RUN dotnet tool install --tool-path /dab-tools Microsoft.DataApiBuilder --version 2.0.9
 
 COPY . .
 RUN dotnet publish SqlCmdr.Web/SqlCmdr.Web.csproj -c Release -o /app/publish --no-restore
@@ -20,7 +20,7 @@ ENV SQLCMDR_FILE_LOG=0
 ENV PATH="/opt/dab-tools:${PATH}"
 LABEL org.opencontainers.image.title="sql-commander" \
       org.opencontainers.image.description="Lightweight web-based SQL Server exploration tool" \
-      org.opencontainers.image.version="1.1.0" \
+      org.opencontainers.image.version="1.1.1" \
       org.opencontainers.image.source="https://github.com/JerryNixon/sql-commander" \
       org.opencontainers.image.licenses="MIT"
 RUN adduser --disabled-password --gecos "app" appuser

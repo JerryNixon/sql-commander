@@ -164,7 +164,6 @@ public class MetadataService : IMetadataService
 
     async Task<List<TableMetadata>> GetTablesAsync(SqlConnection connection)
     {
-        var tables = new List<TableMetadata>();
         const string sql = @"
             SELECT 
                 s.name AS SchemaName,
@@ -188,37 +187,15 @@ public class MetadataService : IMetadataService
             ) pk ON pk.object_id = c.object_id AND pk.column_id = c.column_id
             WHERE t.is_ms_shipped = 0
             ORDER BY s.name, t.name, c.column_id";
-        await using var command = new SqlCommand(sql, connection);
-        await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
-        string? currentSchema = null;
-        string? currentTable = null;
-        TableMetadata? current = null;
-        while (await reader.ReadAsync().ConfigureAwait(false))
-        {
-            var schema = reader.GetString(0);
-            var table = reader.GetString(1);
-            if (currentSchema != schema || currentTable != table)
-            {
-                if (current is not null)
-                {
-                    tables.Add(current);
-                }
-                current = new TableMetadata { Schema = schema, Name = table };
-                currentSchema = schema;
-                currentTable = table;
-            }
-            current!.ColumnsInternal.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7), IsPrimaryKey = reader.GetBoolean(8) });
-        }
-        if (current is not null)
-        {
-            tables.Add(current);
-        }
-        return tables;
+        return await ReadColumnarObjectsAsync(
+            connection,
+            sql,
+            (schema, name) => new TableMetadata { Schema = schema, Name = name },
+            (table, column) => table.ColumnsInternal.Add(column)).ConfigureAwait(false);
     }
 
     async Task<List<ViewMetadata>> GetViewsAsync(SqlConnection connection)
     {
-        var views = new List<ViewMetadata>();
         const string sql = @"
             SELECT 
                 s.name AS SchemaName,
@@ -242,33 +219,62 @@ public class MetadataService : IMetadataService
             ) viewKey ON viewKey.object_id = c.object_id AND viewKey.column_id = c.column_id
             WHERE v.is_ms_shipped = 0
             ORDER BY s.name, v.name, c.column_id";
+        return await ReadColumnarObjectsAsync(
+            connection,
+            sql,
+            (schema, name) => new ViewMetadata { Schema = schema, Name = name },
+            (view, column) => view.ColumnsInternal.Add(column)).ConfigureAwait(false);
+    }
+
+    // Reads schema-qualified objects whose result set is grouped by (schema, name) with one
+    // row per column. Shared by tables and views, which have an identical column projection.
+    static async Task<List<T>> ReadColumnarObjectsAsync<T>(
+        SqlConnection connection,
+        string sql,
+        Func<string, string, T> createObject,
+        Action<T, ColumnMetadata> addColumn)
+        where T : class
+    {
+        var results = new List<T>();
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync().ConfigureAwait(false);
+
         string? currentSchema = null;
-        string? currentView = null;
-        ViewMetadata? current = null;
+        string? currentName = null;
+        T? current = null;
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             var schema = reader.GetString(0);
-            var view = reader.GetString(1);
-            if (currentSchema != schema || currentView != view)
+            var name = reader.GetString(1);
+            if (currentSchema != schema || currentName != name)
             {
                 if (current is not null)
                 {
-                    views.Add(current);
+                    results.Add(current);
                 }
-                current = new ViewMetadata { Schema = schema, Name = view };
+                current = createObject(schema, name);
                 currentSchema = schema;
-                currentView = view;
+                currentName = name;
             }
-            current!.ColumnsInternal.Add(new ColumnMetadata { Name = reader.GetString(2), DataType = reader.GetString(3), IsNullable = reader.GetBoolean(4), MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5), Precision = reader.IsDBNull(6) ? null : reader.GetByte(6), Scale = reader.IsDBNull(7) ? null : reader.GetByte(7), IsPrimaryKey = reader.GetBoolean(8) });
+            addColumn(current!, ReadColumn(reader));
         }
         if (current is not null)
         {
-            views.Add(current);
+            results.Add(current);
         }
-        return views;
+        return results;
     }
+
+    static ColumnMetadata ReadColumn(SqlDataReader reader) => new()
+    {
+        Name = reader.GetString(2),
+        DataType = reader.GetString(3),
+        IsNullable = reader.GetBoolean(4),
+        MaxLength = reader.IsDBNull(5) ? null : reader.GetInt16(5),
+        Precision = reader.IsDBNull(6) ? null : reader.GetByte(6),
+        Scale = reader.IsDBNull(7) ? null : reader.GetByte(7),
+        IsPrimaryKey = reader.GetBoolean(8)
+    };
 
     async Task<List<StoredProcedureMetadata>> GetStoredProceduresAsync(SqlConnection connection)
     {

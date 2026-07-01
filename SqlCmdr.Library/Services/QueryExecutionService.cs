@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SqlCmdr.Abstractions;
+using SqlCmdr.Helpers;
 using SqlCmdr.Infrastructure;
 using SqlCmdr.Models;
 using Microsoft.Data.SqlClient;
@@ -86,7 +87,9 @@ public class QueryExecutionService : IQueryExecutionService
                 do
                 {
                     var resultSet = new ResultSet();
-                    resultSet.ColumnsInternal.AddRange(Enumerable.Range(0, reader.FieldCount).Select(reader.GetName));
+                    var columnNames = MakeColumnNamesUnique(
+                        Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToList());
+                    resultSet.ColumnsInternal.AddRange(columnNames);
 
                     var rowCount = 0;
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -100,7 +103,7 @@ public class QueryExecutionService : IQueryExecutionService
                         var row = new Dictionary<string, object?>();
                         for (var i = 0; i < reader.FieldCount; i++)
                         {
-                            row[resultSet.Columns[i]] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                            row[columnNames[i]] = reader.IsDBNull(i) ? null : reader.GetValue(i);
                         }
                         resultSet.RowsInternal.Add(row);
                         rowCount++;
@@ -131,23 +134,40 @@ public class QueryExecutionService : IQueryExecutionService
         {
             stopwatch.Stop();
             _logger.LogDebug("Query was cancelled");
-            return response with 
-            { 
-                Success = false, 
-                ErrorMessage = "Query was cancelled", 
-                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds 
-            };
+            var diagnostic = QueryErrorDiagnostics.FromException(new OperationCanceledException("Query was cancelled"));
+            return diagnostic.ToFailedResponse(response, stopwatch.ElapsedMilliseconds);
         }
         catch (Exception ex)
         {
             stopwatch.Stop();
             _logger.LogDebug(ex, "Query execution failed");
-            return response with 
-            { 
-                Success = false, 
-                ErrorMessage = ex.Message, 
-                ElapsedMilliseconds = stopwatch.ElapsedMilliseconds 
-            };
+            var diagnostic = QueryErrorDiagnostics.FromException(ex);
+            return diagnostic.ToFailedResponse(response, stopwatch.ElapsedMilliseconds);
         }
+    }
+
+    // Result sets can contain duplicate or empty column names (for example an unaliased join
+    // such as SELECT a.Id, b.Id, or computed columns like SELECT 1, 2). Because rows are stored
+    // in a name-keyed dictionary, duplicate names would overwrite earlier columns and silently
+    // corrupt the displayed data. This produces a positional, unique name for every column.
+    internal static List<string> MakeColumnNamesUnique(IReadOnlyList<string> rawNames)
+    {
+        ArgumentNullException.ThrowIfNull(rawNames);
+
+        var names = new List<string>(rawNames.Count);
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < rawNames.Count; i++)
+        {
+            var baseName = string.IsNullOrEmpty(rawNames[i]) ? $"Column{i + 1}" : rawNames[i];
+            var name = baseName;
+            var suffix = 2;
+            while (!used.Add(name))
+            {
+                name = $"{baseName} ({suffix})";
+                suffix++;
+            }
+            names.Add(name);
+        }
+        return names;
     }
 }

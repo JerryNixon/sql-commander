@@ -3,6 +3,12 @@
 @{
     Layout = null;
     var title = $"SQL Commander: {Model.ServerName}/{Model.DatabaseName}";
+    var appVersion = typeof(SqlCmdr.Web.Pages.IndexModel).Assembly
+        .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+        .FirstOrDefault()?.InformationalVersion ?? "0.0.0";
+    appVersion = appVersion.Split('+', 2)[0];
+    const string dabCliVersion = "2.0.9";
 }
 <!DOCTYPE html>
 <html id="appHtml" lang="en">
@@ -47,8 +53,12 @@
                 <div class="editor-container">
                     <div class="editor-toolbar">
                         <div class="toolbar-left">
-                            <button id="executeBtn" class="execute" onclick="app.executeQuery()" title="Execute Query (Ctrl+E)" data-i18n-title="executeTitle">▶ <span data-i18n="execute">Execute</span></button>
+                            <button id="executeBtn" class="execute" onclick="app.executeQuery()" title="Execute Query (Ctrl+E)" data-i18n-title="executeTitle"><span class="toolbar-button-icon" aria-hidden="true">▶</span><span data-i18n="execute">Execute</span></button>
+                            <button id="formatBtn" class="format" onclick="app.formatQuery()" title="Format SQL (Ctrl+Shift+F)" data-i18n-title="formatSqlTitle"><span class="toolbar-button-icon" aria-hidden="true">≡</span><span data-i18n="formatSql">Format</span></button>
                             <button id="cancelBtn" class="cancel" onclick="app.cancelQuery()" style="display: none;" data-i18n="cancel">Cancel</button>
+                        </div>
+                        <div class="toolbar-right">
+                            <span class="app-version" title="SQL Commander version">v@(appVersion)</span>
                         </div>
                     </div>
                     <div class="editor">
@@ -94,6 +104,7 @@
                 <button type="button" data-settings-tab="properties" onclick="app.navigateTo('/app/settings/connection')" data-i18n="connectionProperties">Connection Properties</button>
                 <button type="button" data-settings-tab="connectionString" onclick="app.navigateTo('/app/settings/connection-string')" data-i18n="connectionString">Connection String</button>
                 <button type="button" data-settings-tab="dataApi" onclick="app.navigateTo('/app/settings/data-api')" data-i18n="dataApi">Data API</button>
+                <button type="button" data-settings-tab="formatting" onclick="app.navigateTo('/app/settings/formatting')">Formatting</button>
                 <button type="button" data-settings-tab="navigation" onclick="app.navigateTo('/app/settings/navigation')" data-i18n="navigation">Navigation</button>
             </div>
             <div class="settings-panel active" id="settingsAppPanel">
@@ -220,6 +231,65 @@
                 <div class="navigation-panel-copy" data-i18n="navigationIntro">SQL Commander supports deep links for common UI views. Use these links to navigate directly or copy/share the URL.</div>
                 <div class="navigation-route-list" id="navigationRouteList"></div>
             </div>
+            <div class="settings-panel" id="settingsFormattingPanel">
+                <div class="navigation-panel-copy">Customize how the <strong>Format</strong> button rewrites your SQL. Changes take effect the next time you format.</div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Keyword case</label>
+                        <select id="settingFormatKeywordCase">
+                            <option value="upper">UPPERCASE</option>
+                            <option value="lower">lowercase</option>
+                            <option value="preserve">Preserve as typed</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Function case</label>
+                        <select id="settingFormatFunctionCase">
+                            <option value="preserve">Preserve as typed</option>
+                            <option value="upper">UPPERCASE</option>
+                            <option value="lower">lowercase</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Data type case</label>
+                        <select id="settingFormatDataTypeCase">
+                            <option value="preserve">Preserve as typed</option>
+                            <option value="upper">UPPERCASE</option>
+                            <option value="lower">lowercase</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Indent style</label>
+                        <select id="settingFormatIndentStyle">
+                            <option value="standard">Standard</option>
+                            <option value="tabularLeft">Tabular, left-aligned</option>
+                            <option value="tabularRight">Tabular, right-aligned</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Indent size (spaces)</label>
+                        <input type="number" id="settingFormatIndentSize" value="4" min="1" max="8">
+                    </div>
+                    <div class="form-group">
+                        <label>AND / OR placement</label>
+                        <select id="settingFormatLogicalOperator">
+                            <option value="before">Before the line break</option>
+                            <option value="after">After the line break</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Expression wrap width</label>
+                        <input type="number" id="settingFormatExpressionWidth" value="50" min="20" max="200">
+                    </div>
+                    <div class="form-group">
+                        <label>Blank lines between statements</label>
+                        <input type="number" id="settingFormatLinesBetweenStatements" value="1" min="0" max="5">
+                    </div>
+                    <label class="checkbox-row span-2"><input type="checkbox" id="settingFormatUseTabs"> <span>Indent with tabs instead of spaces</span></label>
+                    <label class="checkbox-row span-2"><input type="checkbox" id="settingFormatDenseOperators"> <span>Compact operators (no spaces around = + - / *)</span></label>
+                    <label class="checkbox-row span-2"><input type="checkbox" id="settingFormatNewlineBeforeSemicolon"> <span>Put the closing semicolon on its own line</span></label>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button id="testConnectionBtn" onclick="app.testConnection()" data-i18n="testConnection">Test Connection</button>
                 <div class="modal-actions-right">
@@ -234,7 +304,7 @@
     <div class="modal" id="dabModal" onclick="app.handleModalClick(event)">
         <div class="modal-content dab-modal" onclick="event.stopPropagation()">
             <div class="modal-header modal-header-row">
-                <span>Data API</span>
+                <span class="modal-title-with-version"><span>Data API</span><span class="dab-cli-version" title="Data API Builder CLI version">DAB v@(dabCliVersion)</span></span>
                 <button type="button" class="secondary" onclick="app.hideDabDialog()" aria-label="Close" data-i18n-aria-label="close">×</button>
             </div>
             <div id="dabSelectPanel" class="dab-select-panel">
@@ -329,6 +399,19 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script type="module">
+        import('https://cdn.jsdelivr.net/npm/sql-formatter@15.8.2/+esm')
+            .then(module => {
+                if (typeof module.format === 'function') {
+                    window.sqlFormatter = { format: module.format };
+                    window.dispatchEvent(new CustomEvent('sqlFormatterLoaded'));
+                }
+            })
+            .catch(error => {
+                console.warn('SQL formatter library failed to load; built-in fallback formatter will be used.', error);
+                window.dispatchEvent(new CustomEvent('sqlFormatterLoadFailed', { detail: error }));
+            });
+    </script>
     <script>
         const app = {
             metadata: null,
@@ -361,6 +444,10 @@
             dabCopyFeedbackTimer: null,
             showUserObjectsOnly: true,
             showDabUserObjectsOnly: true,
+            expandedTreeKeys: new Set(),
+            treeExpansionStateCaptured: false,
+            sqlFormattingProviderRegistered: false,
+            formatFeedbackTimer: null,
             dabUnsupportedSqlTypes: new Set(['geography', 'geometry', 'hierarchyid', 'json', 'rowversion', 'timestamp', 'sql_variant', 'vector', 'xml']),
             currentAppRoute: '/',
             applyingRoute: false,
@@ -380,7 +467,7 @@
             translations: {
                 en: {
                     search: 'Search...', loadingMetadata: 'Loading metadata...', refresh: 'Refresh', viewSchema: 'Diagram',
-                    execute: 'Execute', cancel: 'Cancel', settings: 'Settings', appSettings: 'App Settings', dataApi: 'Data API', navigation: 'Navigation', noResults: 'No results to display.', connectionProperties: 'Connection Properties',
+                    execute: 'Execute', formatSql: 'Format', cancel: 'Cancel', settings: 'Settings', appSettings: 'App Settings', dataApi: 'Data API', navigation: 'Navigation', noResults: 'No results to display.', connectionProperties: 'Connection Properties',
                     connectionString: 'Connection String', serverName: 'Server Name', authentication: 'Authentication', userName: 'User Name', password: 'Password',
                     rememberPassword: 'Remember Password', databaseName: 'Database Name', encrypt: 'Encrypt', trustServerCertificate: 'Trust Server Certificate',
                     connectionTimeout: 'Connection Timeout', commandTimeout: 'Command Timeout', applicationName: 'Application Name', pooling: 'Pooling', mars: 'Multiple Active Result Sets',
@@ -399,7 +486,7 @@
                     needsPrimaryKey: 'Needs primary key', unsupportedType: 'Unsupported type', noObjectsFound: 'No objects found.', noColumns: 'No columns', key: 'Key', useAsDataApiKeyField: 'Use {0} as a Data API key field',
                     dabUnsupportedTypeReason: 'Data API Builder does not support {0} for this object. Leave it out or change those columns/parameters to supported types.', dabTablePrimaryKeyReason: 'Data API Builder requires tables to have a primary key. Add a primary key or leave this table out.',
                     selectKeyFieldsFor: 'Select key fields for: {0}', selectAtLeastOneDataApiObject: 'Select at least one object to start Data API.', startDataApiWithSelectedObjects: 'Start Data API with {0} selected {1}.', selectAtLeastOneObject: 'Select at least one object.',
-                    toggleExplorer: 'Toggle Explorer', toggleExplorerTitle: 'Toggle Explorer (Ctrl+B)', clearFilter: 'Clear filter', clearFilterTitle: 'Clear filter (Escape)', diagramTitle: 'Diagram (Ctrl+Shift+S)', dataApiTitle: 'Data API (Ctrl+Shift+D)', executeTitle: 'Execute Query (Ctrl+E)', settingsTitle: 'Settings (Ctrl+,)',
+                    toggleExplorer: 'Toggle Explorer', toggleExplorerTitle: 'Toggle Explorer (Ctrl+B)', clearFilter: 'Clear filter', clearFilterTitle: 'Clear filter (Escape)', diagramTitle: 'Diagram (Ctrl+Shift+S)', dataApiTitle: 'Data API (Ctrl+Shift+D)', executeTitle: 'Execute Query (Ctrl+E)', formatSqlTitle: 'Format SQL (Ctrl+Shift+F)', settingsTitle: 'Settings (Ctrl+,)',
                     dataApiIsRunning: 'Data API is running', dataApiEndpoints: 'Data API endpoints', viewHealth: 'View Health', openSwagger: 'Open Swagger', openGraphQL: 'Open GraphQL', configureStart: 'Configure / Start',
                     databaseSchema: 'Database Schema', zoom: 'Zoom:', zoomOutTitle: 'Zoom Out (Ctrl + Mouse Wheel Down)', zoomInTitle: 'Zoom In (Ctrl + Mouse Wheel Up)', reset: 'Reset', resetZoomTitle: 'Reset Zoom', fit: 'Fit', fitToWindowTitle: 'Fit to Window', navigationTips: '💡 Navigation Tips', schemaNavigationPanZoom: 'Drag to pan • Ctrl + Scroll to zoom', schemaNavigationKeyboard: '+/− keys to zoom • F to fit • 0 to reset',
                     openSettings: 'Open Settings', retry: 'Retry', noResultsReturned: 'No results returned.', messages: 'Messages:', endpointsAvailableAfterStart: 'Endpoints are available after Data API starts.', unknownConnectionError: 'Unknown error while connecting to the database.', unableToConnectAfter: 'Unable to connect to the database after {0}.', attempt: 'attempt', attempts: 'attempts', seeResultsPane: 'See the results pane for full error details.',
@@ -411,7 +498,7 @@
                 },
                 es: {
                     search: 'Buscar...', loadingMetadata: 'Cargando metadatos...', refresh: 'Actualizar', viewSchema: 'Diagrama',
-                    execute: 'Ejecutar', cancel: 'Cancelar', settings: 'Configuración', appSettings: 'Configuración de app', dataApi: 'Data API', navigation: 'Navegación', noResults: 'No hay resultados para mostrar.', connectionProperties: 'Propiedades de conexión',
+                    execute: 'Ejecutar', formatSql: 'Formatear', cancel: 'Cancelar', settings: 'Configuración', appSettings: 'Configuración de app', dataApi: 'Data API', navigation: 'Navegación', noResults: 'No hay resultados para mostrar.', connectionProperties: 'Propiedades de conexión',
                     connectionString: 'Cadena de conexión', serverName: 'Nombre del servidor', authentication: 'Autenticación', userName: 'Usuario', password: 'Contraseña',
                     rememberPassword: 'Recordar contraseña', databaseName: 'Nombre de base de datos', encrypt: 'Cifrado', trustServerCertificate: 'Confiar en certificado del servidor',
                     connectionTimeout: 'Tiempo de conexión', commandTimeout: 'Tiempo de comando', applicationName: 'Nombre de aplicación', pooling: 'Agrupación', mars: 'Varios conjuntos activos',
@@ -430,7 +517,7 @@
                     needsPrimaryKey: 'Necesita clave primaria', unsupportedType: 'Tipo no compatible', noObjectsFound: 'No se encontraron objetos.', noColumns: 'Sin columnas', key: 'Clave', useAsDataApiKeyField: 'Usar {0} como campo clave de Data API',
                     dabUnsupportedTypeReason: 'Data API Builder no admite {0} para este objeto. Exclúyelo o cambia esas columnas/parámetros a tipos compatibles.', dabTablePrimaryKeyReason: 'Data API Builder requiere que las tablas tengan una clave primaria. Agrega una clave primaria o excluye esta tabla.',
                     selectKeyFieldsFor: 'Selecciona campos clave para: {0}', selectAtLeastOneDataApiObject: 'Selecciona al menos un objeto para iniciar Data API.', startDataApiWithSelectedObjects: 'Iniciar Data API con {0} {1} seleccionados.', selectAtLeastOneObject: 'Selecciona al menos un objeto.',
-                    toggleExplorer: 'Alternar explorador', toggleExplorerTitle: 'Alternar explorador (Ctrl+B)', clearFilter: 'Borrar filtro', clearFilterTitle: 'Borrar filtro (Escape)', diagramTitle: 'Diagrama (Ctrl+Shift+S)', dataApiTitle: 'Data API (Ctrl+Shift+D)', executeTitle: 'Ejecutar consulta (Ctrl+E)', settingsTitle: 'Configuración (Ctrl+,)',
+                    toggleExplorer: 'Alternar explorador', toggleExplorerTitle: 'Alternar explorador (Ctrl+B)', clearFilter: 'Borrar filtro', clearFilterTitle: 'Borrar filtro (Escape)', diagramTitle: 'Diagrama (Ctrl+Shift+S)', dataApiTitle: 'Data API (Ctrl+Shift+D)', executeTitle: 'Ejecutar consulta (Ctrl+E)', formatSqlTitle: 'Formatear SQL (Ctrl+Shift+F)', settingsTitle: 'Configuración (Ctrl+,)',
                     dataApiIsRunning: 'Data API está en ejecución', dataApiEndpoints: 'Endpoints de Data API', viewHealth: 'Ver estado', openSwagger: 'Abrir Swagger', openGraphQL: 'Abrir GraphQL', configureStart: 'Configurar / Iniciar',
                     databaseSchema: 'Esquema de base de datos', zoom: 'Zoom:', zoomOutTitle: 'Alejar (Ctrl + rueda del mouse hacia abajo)', zoomInTitle: 'Acercar (Ctrl + rueda del mouse hacia arriba)', reset: 'Restablecer', resetZoomTitle: 'Restablecer zoom', fit: 'Ajustar', fitToWindowTitle: 'Ajustar a la ventana', navigationTips: '💡 Consejos de navegación', schemaNavigationPanZoom: 'Arrastra para desplazar • Ctrl + rueda para zoom', schemaNavigationKeyboard: 'Teclas +/− para zoom • F para ajustar • 0 para restablecer',
                     openSettings: 'Abrir configuración', retry: 'Reintentar', noResultsReturned: 'No se devolvieron resultados.', messages: 'Mensajes:', endpointsAvailableAfterStart: 'Los endpoints estarán disponibles después de iniciar Data API.', unknownConnectionError: 'Error desconocido al conectar con la base de datos.', unableToConnectAfter: 'No se pudo conectar con la base de datos después de {0}.', attempt: 'intento', attempts: 'intentos', seeResultsPane: 'Consulta el panel de resultados para ver los detalles completos del error.',
@@ -654,6 +741,7 @@
                 if (routePath.endsWith('/connection')) return 'properties';
                 if (routePath.endsWith('/connection-string')) return 'connectionString';
                 if (routePath.endsWith('/data-api')) return 'dataApi';
+                if (routePath.endsWith('/formatting')) return 'formatting';
                 if (routePath.endsWith('/navigation')) return 'navigation';
                 return 'app';
             },
@@ -1234,7 +1322,302 @@
                         fontSize: 14,
                         fontFamily: 'Consolas, "Courier New", monospace',
                     });
+                    this.registerSqlFormattingProvider();
+                    this.editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => this.formatQuery());
                 });
+            },
+
+            registerSqlFormattingProvider() {
+                if (this.sqlFormattingProviderRegistered || typeof monaco === 'undefined') {
+                    return;
+                }
+
+                const formatRange = (model, range) => {
+                    const sql = model.getValueInRange(range);
+                    if (!sql || !sql.trim() || this.isEditorPlaceholder(sql)) {
+                        return [];
+                    }
+
+                    try {
+                        const result = this.getFormattedSql(sql, { allowFallback: true });
+                        return result.text && result.text !== sql
+                            ? [{ range, text: result.text }]
+                            : [];
+                    } catch (error) {
+                        console.warn('SQL formatting provider failed:', error);
+                        return [];
+                    }
+                };
+
+                monaco.languages.registerDocumentFormattingEditProvider('sql', {
+                    provideDocumentFormattingEdits: (model) => formatRange(model, model.getFullModelRange())
+                });
+
+                monaco.languages.registerDocumentRangeFormattingEditProvider('sql', {
+                    provideDocumentRangeFormattingEdits: (model, range) => formatRange(model, range)
+                });
+
+                this.sqlFormattingProviderRegistered = true;
+            },
+
+            formatQuery() {
+                if (!this.editor) return;
+
+                const model = this.editor.getModel();
+                if (!model) return;
+
+                const selection = this.editor.getSelection();
+                const hasSelection = selection && !selection.isEmpty();
+                const range = hasSelection ? selection : model.getFullModelRange();
+                const original = model.getValueInRange(range);
+
+                if (!original || !original.trim() || this.isEditorPlaceholder(original)) {
+                    this.showFormatFeedback('Nothing to format.', 'info');
+                    return;
+                }
+
+                let result;
+                try {
+                    result = this.getFormattedSql(original, { allowFallback: true });
+                } catch (error) {
+                    console.error('Format SQL error:', error);
+                    this.showFormatFeedback('Could not format SQL. Check for unmatched quotes, parentheses, or unfinished comments.', 'error');
+                    return;
+                }
+
+                if (!result.text || result.text === original) {
+                    this.showFormatFeedback('SQL is already formatted.', 'info');
+                    this.editor.focus();
+                    return;
+                }
+
+                this.editor.pushUndoStop();
+                this.editor.executeEdits('format-sql', [{ range, text: result.text, forceMoveMarkers: true }]);
+                this.editor.pushUndoStop();
+                this.editor.focus();
+
+                const suffix = result.engine === 'sql-formatter'
+                    ? ''
+                    : ' with the built-in formatter';
+                this.showFormatFeedback(`Formatted SQL${suffix}.`, result.engine === 'sql-formatter' ? 'success' : 'info');
+            },
+
+            getFormatOptions() {
+                const s = this.settings || {};
+                const oneOf = (value, allowed, fallback) => allowed.includes(value) ? value : fallback;
+                const clampInt = (value, min, max, fallback) => {
+                    const n = parseInt(value, 10);
+                    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+                };
+                return {
+                    keywordCase: oneOf(s.formatKeywordCase, ['upper', 'lower', 'preserve'], 'upper'),
+                    functionCase: oneOf(s.formatFunctionCase, ['upper', 'lower', 'preserve'], 'preserve'),
+                    dataTypeCase: oneOf(s.formatDataTypeCase, ['upper', 'lower', 'preserve'], 'preserve'),
+                    indentStyle: oneOf(s.formatIndentStyle, ['standard', 'tabularLeft', 'tabularRight'], 'standard'),
+                    logicalOperatorNewline: oneOf(s.formatLogicalOperatorPosition, ['before', 'after'], 'before'),
+                    tabWidth: clampInt(s.formatIndentSize, 1, 8, 4),
+                    useTabs: s.formatUseTabs === true,
+                    expressionWidth: clampInt(s.formatExpressionWidth, 20, 200, 50),
+                    linesBetweenQueries: clampInt(s.formatLinesBetweenStatements, 0, 5, 1),
+                    denseOperators: s.formatDenseOperators === true,
+                    newlineBeforeSemicolon: s.formatNewlineBeforeSemicolon === true
+                };
+            },
+
+            getFormattedSql(sql, { allowFallback = true } = {}) {
+                const text = String(sql || '');
+                if (!text.trim()) {
+                    return { text, engine: 'none' };
+                }
+
+                const options = this.getFormatOptions();
+                const formatter = window.sqlFormatter;
+                if (formatter && typeof formatter.format === 'function') {
+                    try {
+                        return {
+                            text: formatter.format(text, {
+                                language: 'transactsql',
+                                keywordCase: options.keywordCase,
+                                functionCase: options.functionCase,
+                                dataTypeCase: options.dataTypeCase,
+                                indentStyle: options.indentStyle,
+                                logicalOperatorNewline: options.logicalOperatorNewline,
+                                tabWidth: options.tabWidth,
+                                useTabs: options.useTabs,
+                                expressionWidth: options.expressionWidth,
+                                linesBetweenQueries: options.linesBetweenQueries,
+                                denseOperators: options.denseOperators,
+                                newlineBeforeSemicolon: options.newlineBeforeSemicolon
+                            }).trim(),
+                            engine: 'sql-formatter'
+                        };
+                    } catch (error) {
+                        if (!allowFallback) throw error;
+                        console.warn('sql-formatter failed; falling back to built-in formatter.', error);
+                    }
+                }
+
+                if (!allowFallback) {
+                    throw new Error('SQL formatter library is not available.');
+                }
+
+                return { text: this.formatSqlFallback(text, options), engine: 'fallback' };
+            },
+
+            isEditorPlaceholder(value) {
+                const text = String(value || '').trim();
+                return Object.values(this.translations)
+                    .map(translation => translation.editorPlaceholder)
+                    .filter(Boolean)
+                    .some(placeholder => placeholder.trim() === text);
+            },
+
+            formatSqlFallback(sql, options = {}) {
+                const keywordCase = options.keywordCase || 'upper';
+                const indent = options.useTabs ? '\t' : ' '.repeat(Math.min(8, Math.max(1, parseInt(options.tabWidth, 10) || 4)));
+                const kw = (word) => keywordCase === 'lower' ? word.toLowerCase() : keywordCase === 'preserve' ? word : word.toUpperCase();
+
+                const protectedSql = this.protectSqlFormattingTokens(sql);
+                let text = protectedSql.text
+                    .replace(/\s+/g, ' ')
+                    .replace(/\s*([=<>!]+|\+|-|\/|\*)\s*/g, ' $1 ')
+                    .replace(/\s*,\s*/g, ', ')
+                    .trim();
+
+                const keywords = [
+                    'add', 'alter', 'and', 'as', 'asc', 'begin', 'between', 'by', 'case', 'create', 'cross', 'delete', 'desc', 'distinct', 'drop',
+                    'else', 'end', 'except', 'exec', 'execute', 'exists', 'from', 'full', 'group', 'having', 'in', 'inner', 'insert', 'intersect',
+                    'into', 'is', 'join', 'left', 'like', 'merge', 'not', 'null', 'on', 'or', 'order', 'outer', 'right', 'select', 'set', 'then',
+                    'top', 'union', 'update', 'values', 'when', 'where', 'with'
+                ];
+
+                if (keywordCase !== 'preserve') {
+                    keywords.forEach(keyword => {
+                        text = text.replace(new RegExp(`\\b${keyword}\\b`, 'gi'), kw(keyword));
+                    });
+                }
+
+                const phraseBreaks = [
+                    'UNION ALL', 'UNION', 'ORDER BY', 'GROUP BY', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'FULL JOIN', 'CROSS JOIN',
+                    'OUTER APPLY', 'CROSS APPLY', 'FROM', 'WHERE', 'HAVING', 'JOIN', 'ON', 'VALUES', 'SET'
+                ];
+                phraseBreaks.forEach(phrase => {
+                    text = text.replace(new RegExp(`\\s+${phrase.replace(/\s+/g, '\\s+')}\\s+`, 'gi'), `\n${kw(phrase)}\n${indent}`);
+                });
+
+                text = text
+                    .replace(new RegExp('^SELECT\\s+', 'i'), `${kw('SELECT')}\n${indent}`)
+                    .replace(new RegExp('\\s+FROM\\s+', 'gi'), `\n${kw('FROM')}\n${indent}`)
+                    .replace(/,\s*(?=(?:[^()]*\([^()]*\))*[^()]*$)/g, `,\n${indent}`)
+                    .replace(new RegExp(`\\n\\s*${kw('ON')}\\n\\s*`, 'g'), `\n${indent}${kw('ON')} `)
+                    .replace(/\n{3,}/g, '\n\n')
+                    .split('\n')
+                    .map(line => line.trimEnd())
+                    .join('\n')
+                    .trim();
+
+                return this.restoreSqlFormattingTokens(text, protectedSql.tokens);
+            },
+
+            protectSqlFormattingTokens(sql) {
+                const tokens = [];
+                let text = '';
+                let index = 0;
+
+                const pushToken = (value) => {
+                    const placeholder = `__SQLCMDR_FORMAT_TOKEN_${tokens.length}__`;
+                    tokens.push(value);
+                    text += placeholder;
+                };
+
+                while (index < sql.length) {
+                    const current = sql[index];
+                    const next = sql[index + 1];
+
+                    if (current === '-' && next === '-') {
+                        const end = sql.indexOf('\n', index + 2);
+                        const tokenEnd = end === -1 ? sql.length : end;
+                        pushToken(sql.slice(index, tokenEnd));
+                        index = tokenEnd;
+                        continue;
+                    }
+
+                    if (current === '/' && next === '*') {
+                        const end = sql.indexOf('*/', index + 2);
+                        const tokenEnd = end === -1 ? sql.length : end + 2;
+                        pushToken(sql.slice(index, tokenEnd));
+                        index = tokenEnd;
+                        continue;
+                    }
+
+                    if (current === '[') {
+                        let end = index + 1;
+                        while (end < sql.length) {
+                            if (sql[end] === ']' && sql[end + 1] === ']') {
+                                end += 2;
+                                continue;
+                            }
+                            if (sql[end] === ']') {
+                                end++;
+                                break;
+                            }
+                            end++;
+                        }
+                        pushToken(sql.slice(index, end));
+                        index = end;
+                        continue;
+                    }
+
+                    if (current === "'" || current === '"') {
+                        const quote = current;
+                        let end = index + 1;
+                        while (end < sql.length) {
+                            if (sql[end] === quote && sql[end + 1] === quote) {
+                                end += 2;
+                                continue;
+                            }
+                            if (sql[end] === quote) {
+                                end++;
+                                break;
+                            }
+                            end++;
+                        }
+                        pushToken(sql.slice(index, end));
+                        index = end;
+                        continue;
+                    }
+
+                    text += current;
+                    index++;
+                }
+
+                return { text, tokens };
+            },
+
+            restoreSqlFormattingTokens(sql, tokens) {
+                let text = sql;
+                tokens.forEach((token, index) => {
+                    text = text.replace(new RegExp(`__SQLCMDR_FORMAT_TOKEN_${index}__`, 'g'), token);
+                });
+                return text;
+            },
+
+            showFormatFeedback(message, type = 'info') {
+                const button = document.getElementById('formatBtn');
+                if (!button) return;
+
+                button.classList.remove('format-success', 'format-error', 'format-info');
+                button.classList.add(`format-${type}`);
+                button.textContent = type === 'error' ? 'Format failed' : message;
+                button.title = message;
+
+                if (this.formatFeedbackTimer) clearTimeout(this.formatFeedbackTimer);
+                this.formatFeedbackTimer = setTimeout(() => {
+                    button.classList.remove('format-success', 'format-error', 'format-info');
+                    button.innerHTML = `<span class="toolbar-button-icon" aria-hidden="true">≡</span><span data-i18n="formatSql">${this.escapeHtml(this.t('formatSql'))}</span>`;
+                    button.title = this.t('formatSqlTitle');
+                    this.formatFeedbackTimer = null;
+                }, type === 'error' ? 3200 : 1800);
             },
 
             async loadSettings() {
@@ -1532,6 +1915,16 @@
                 return `<span class="dab-unsupported-icon" aria-label="${safeTitle}" title="${safeTitle}">◬</span>`;
             },
 
+            renderNonUserObjectIcon(item, type) {
+                if (this.showUserObjectsOnly || this.isCleanUserObject(item, type)) {
+                    return '';
+                }
+
+                const title = 'Non-user object. Hidden when Show user objects only is enabled.';
+                const safeTitle = this.escapeHtml(title);
+                return `<span class="tree-non-user-icon" aria-label="${safeTitle}" title="${safeTitle}">◇</span>`;
+            },
+
             setDabOutputSummary(message = '') {
                 const summary = document.getElementById('dabOutputSummary');
                 if (!summary) return;
@@ -1594,7 +1987,44 @@
                 if (filterValue) this.filterTree(filterValue);
             },
 
+            captureTreeExpansionState() {
+                const expandedKeys = new Set();
+                document.querySelectorAll('#treeContainer .tree-node.expanded').forEach(node => {
+                    const key = this.getTreeNodeKey(node);
+                    if (key) expandedKeys.add(key);
+                });
+                this.expandedTreeKeys = expandedKeys;
+                this.treeExpansionStateCaptured = true;
+            },
+
+            getTreeNodeKey(node) {
+                if (!node) return '';
+                const type = node.dataset.type;
+                if (type === 'category') {
+                    return `category:${node.dataset.categoryType || ''}`;
+                }
+
+                const categoryType = node.closest('.tree-node[data-type="category"]')?.dataset.categoryType || '';
+                if (type === 'schema') {
+                    const schema = node.dataset.schema || node.querySelector(':scope > .tree-label .tree-name')?.textContent?.trim() || '';
+                    return schema ? `schema:${categoryType}:${schema}` : '';
+                }
+
+                if (type === 'table' || type === 'view' || type === 'proc') {
+                    const schema = node.dataset.schema || '';
+                    const name = node.dataset.name || '';
+                    return schema && name ? `object:${type}:${schema}.${name}` : '';
+                }
+
+                return '';
+            },
+
+            isTreeNodeExpandedByKey(key, defaultExpanded = false) {
+                return this.treeExpansionStateCaptured ? this.expandedTreeKeys.has(key) : defaultExpanded;
+            },
+
             toggleUserObjectsOnly(checked) {
+                this.captureTreeExpansionState();
                 this.showUserObjectsOnly = checked === true;
                 this.renderTree();
             },
@@ -1652,10 +2082,12 @@
                 const singular = this.t(info.singularKey);
                 const plural = this.t(info.pluralKey);
                 const isTablesCategory = type === 'table';
-                const categoryClass = isTablesCategory ? 'expanded' : 'collapsed';
+                const categoryKey = `category:${type}`;
+                const categoryExpanded = this.isTreeNodeExpandedByKey(categoryKey, isTablesCategory);
+                const categoryClass = categoryExpanded ? 'expanded' : 'collapsed';
                 
                 let html = `<div class="tree-node ${categoryClass}" data-type="category" data-category-type="${type}">
-                    <div class="tree-label" role="treeitem" aria-expanded="${isTablesCategory ? 'true' : 'false'}" tabindex="-1" onclick="app.selectTreeNode(event)">
+                    <div class="tree-label" role="treeitem" aria-expanded="${categoryExpanded ? 'true' : 'false'}" tabindex="-1" onclick="app.selectTreeNode(event)">
                         <span class="tree-icon chevron" aria-hidden="true">❯</span>
                         <strong class="tree-name">${title}</strong> <span class="tree-count" data-unit-singular="${singular}" data-unit-plural="${plural}" data-original-count="${items.length}">${this.formatCount(items.length, singular, plural)}</span>
                     </div>
@@ -1670,8 +2102,10 @@
 
                 Object.keys(bySchema).sort().forEach(schema => {
                     const schemaCount = bySchema[schema].length;
-                    html += `<div class="tree-node collapsed" data-type="schema">
-                        <div class="tree-label" role="treeitem" aria-expanded="false" tabindex="-1" onclick="app.selectTreeNode(event)">
+                    const schemaKey = `schema:${type}:${schema}`;
+                    const schemaExpanded = this.isTreeNodeExpandedByKey(schemaKey, false);
+                    html += `<div class="tree-node ${schemaExpanded ? 'expanded' : 'collapsed'}" data-type="schema" data-schema="${this.escapeHtml(schema)}">
+                        <div class="tree-label" role="treeitem" aria-expanded="${schemaExpanded ? 'true' : 'false'}" tabindex="-1" onclick="app.selectTreeNode(event)">
                             <span class="tree-icon chevron" aria-hidden="true">❯</span>
                             <span class="tree-name">${this.escapeHtml(schema)}</span> <span class="tree-count" data-unit-singular="${singular}" data-unit-plural="${plural}" data-original-count="${schemaCount}">${this.formatCount(schemaCount, singular, plural)}</span>
                         </div>
@@ -1684,11 +2118,14 @@
                             ? `Contains Data API builder unsupported SQL type${dabUnsupportedColumns.length === 1 ? '' : 's'}: ${this.getDabUnsupportedColumnsSummary(dabUnsupportedColumns)}`
                             : '';
                         const dabUnsupportedIcon = dabUnsupportedColumns.length > 0 ? this.renderDabUnsupportedIcon(dabUnsupportedTitle) : '';
+                        const nonUserObjectIcon = this.renderNonUserObjectIcon(item, type);
+                        const objectKey = `object:${type}:${item.schema}.${item.name}`;
+                        const objectExpanded = this.isTreeNodeExpandedByKey(objectKey, false);
                         
-                        html += `<div class="tree-node collapsed" data-type="${type}" data-fullname="${this.escapeHtml(fullName)}" data-schema="${this.escapeHtml(item.schema)}" data-name="${this.escapeHtml(item.name)}">
-                            <div class="tree-label" role="treeitem" aria-expanded="false" tabindex="-1" onclick="app.selectTreeNode(event)">
+                        html += `<div class="tree-node ${objectExpanded ? 'expanded' : 'collapsed'}" data-type="${type}" data-fullname="${this.escapeHtml(fullName)}" data-schema="${this.escapeHtml(item.schema)}" data-name="${this.escapeHtml(item.name)}">
+                            <div class="tree-label" role="treeitem" aria-expanded="${objectExpanded ? 'true' : 'false'}" tabindex="-1" onclick="app.selectTreeNode(event)">
                                 <span class="tree-icon chevron" aria-hidden="true">❯</span>
-                                <span class="tree-name tree-object-name"><span class="tree-object-label">${this.escapeHtml(item.name)}</span>${dabUnsupportedIcon}</span>
+                                <span class="tree-name tree-object-name"><span class="tree-object-label">${this.escapeHtml(item.name)}</span>${nonUserObjectIcon}${dabUnsupportedIcon}</span>
                                 ${this.renderObjectActions(type)}
                             </div>
                             <div class="tree-children">`;
@@ -2269,32 +2706,23 @@
                         return;
                     }
 
+                    const text = await response.text();
+
                     if (!response.ok) {
-                        const contentType = response.headers.get('content-type');
-                        const errorText = await response.text();
-                        console.error('Response error details:', {
-                            status: response.status,
-                            statusText: response.statusText,
-                            contentType: contentType,
-                            body: errorText
-                        });
-                        
-                        // Try to parse as JSON for better error messages
-                        let errorMessage = errorText;
-                        try {
-                            const errorJson = JSON.parse(errorText);
-                            if (errorJson.errorMessage) errorMessage = errorJson.errorMessage;
-                            else if (errorJson.error) errorMessage = errorJson.error;
-                        } catch (e) {
-                            // Not JSON, use raw text
-                        }
-                        
-                        throw new Error(`HTTP ${response.status} ${response.statusText}\n\nContent-Type: ${contentType}\n\nResponse Body:\n${errorMessage}`);
+                        const diagnostic = this.buildHttpQueryDiagnostic(response, text);
+                        this.displayQueryFailure(diagnostic);
+                        return;
                     }
 
-                    const text = await response.text();
                     if (!text) {
-                        throw new Error('Empty response from server');
+                        this.displayQueryFailure({
+                            errorType: 'empty-response',
+                            errorTitle: 'SQL Commander returned an empty response.',
+                            errorMessage: 'The query endpoint completed without returning JSON results.',
+                            fixRecommendation: 'Refresh the page and try again. If this repeats, check the SQL Commander logs for a server-side failure during query execution.',
+                            errorDetail: 'HTTP response body was empty.'
+                        });
+                        return;
                     }
 
                     let result;
@@ -2303,7 +2731,8 @@
                     } catch (parseError) {
                         console.error('JSON parse error:', parseError);
                         console.error('Response text:', text);
-                        throw new Error(`Failed to parse server response as JSON.\n\nParse Error: ${parseError.message}\n\nResponse:\n${text.substring(0, 500)}`);
+                        this.displayQueryFailure(this.buildJsonParseQueryDiagnostic(parseError, text));
+                        return;
                     }
                     
                     // Only display results if not cancelled
@@ -2314,7 +2743,7 @@
                     // Only display error if not cancelled
                     if (!this.queryCancelled) {
                         console.error('Execute query error:', error);
-                        this.displayError(error.message);
+                        this.displayQueryFailure(await this.buildTransportQueryDiagnostic(error));
                     }
                 } finally {
                     // Only reset UI if query was not cancelled
@@ -2375,7 +2804,7 @@
                 const container = document.getElementById('resultsContainer');
 
                 if (!result.success) {
-                    container.innerHTML = `<div class="error">${result.errorMessage}</div>`;
+                    this.displayQueryFailure(result);
                     this.setStatusQuery('failed', 'Failed');
                     document.getElementById('statusTime').textContent = `${(result.elapsedMilliseconds / 1000).toFixed(2)}s`;
                     return;
@@ -2391,7 +2820,7 @@
                         html += '<div class="info-messages" style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 2px; padding: 12px; margin-bottom: 12px; font-family: \'Consolas\', monospace; font-size: 12px;">';
                         html += `<div style="font-weight: 600; margin-bottom: 8px; color: var(--accent-blue);">${this.escapeHtml(this.t('messages'))}</div>`;
                         result.messages.forEach(msg => {
-                            html += `<div style="margin-bottom: 4px; color: var(--text-primary);">${msg}</div>`;
+                            html += `<div style="margin-bottom: 4px; color: var(--text-primary);">${this.escapeHtml(msg)}</div>`;
                         });
                         html += '</div>';
                     }
@@ -2404,7 +2833,7 @@
                         
                         html += `<table class="result-table"><thead><tr>`;
                         rs.columns.forEach(col => {
-                            html += `<th>${col}</th>`;
+                            html += `<th>${this.escapeHtml(col)}</th>`;
                         });
                         html += `</tr></thead><tbody>`;
 
@@ -2412,7 +2841,7 @@
                             html += '<tr>';
                             rs.columns.forEach(col => {
                                 const val = row[col];
-                                html += `<td>${val === null ? '<i>NULL</i>' : val}</td>`;
+                                html += `<td>${val === null ? '<i>NULL</i>' : this.escapeHtml(val)}</td>`;
                             });
                             html += '</tr>';
                         });
@@ -2434,9 +2863,157 @@
 
             displayError(message) {
                 // Make the error message more readable with line breaks preserved
-                const formattedMessage = message.replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
+                const formattedMessage = this.escapeHtml(message).replace(/\\n/g, '<br>').replace(/\n/g, '<br>');
                 document.getElementById('resultsContainer').innerHTML = `<div class="error" style="padding: 16px; white-space: pre-wrap; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; line-height: 1.6;">${formattedMessage}</div>`;
                 this.setStatusQuery('failed', 'Failed');
+            },
+
+            displayQueryFailure(result) {
+                const container = document.getElementById('resultsContainer');
+                if (!container) return;
+
+                const title = result?.errorTitle || 'Query failed.';
+                const message = result?.errorMessage || result?.message || 'The query did not complete successfully.';
+                const recommendation = result?.fixRecommendation || 'Review the technical details, verify the SQL text, and check the current connection settings.';
+                const detail = result?.errorDetail || result?.details || '';
+                const code = result?.errorCode ? `<span class="query-error-code">${this.escapeHtml(result.errorCode)}</span>` : '';
+                const steps = Array.isArray(result?.troubleshootingSteps) ? result.troubleshootingSteps.filter(Boolean) : [];
+                const actions = this.buildQueryFailureActionsHtml(result);
+
+                container.innerHTML = `
+                    <div class="query-error-card">
+                        <div class="query-error-header">
+                            <div>
+                                <div class="query-error-kicker">Query failed</div>
+                                <div class="query-error-title">${this.escapeHtml(title)} ${code}</div>
+                            </div>
+                        </div>
+                        <div class="query-error-section">
+                            <div class="query-error-label">What happened</div>
+                            <div class="query-error-message">${this.escapeHtml(message)}</div>
+                        </div>
+                        <div class="query-error-section">
+                            <div class="query-error-label">Recommended fix</div>
+                            <div class="query-error-message">${this.escapeHtml(recommendation)}</div>
+                        </div>
+                        ${steps.length > 0 ? `<div class="query-error-section"><div class="query-error-label">Troubleshooting</div><ul class="query-error-steps">${steps.map(step => `<li>${this.escapeHtml(step)}</li>`).join('')}</ul></div>` : ''}
+                        ${actions}
+                        ${detail ? `<details class="query-error-details"><summary>Technical details</summary><pre>${this.escapeHtml(detail)}</pre></details>` : ''}
+                    </div>`;
+                this.setStatusQuery('failed', this.t('failed') || 'Failed');
+            },
+
+            buildQueryFailureActionsHtml(result) {
+                const type = String(result?.errorType || '').toLowerCase();
+                const settingsTypes = new Set(['server-unreachable', 'login-failed', 'database-unavailable', 'certificate-validation', 'azure-sql-firewall', 'no-connection', 'query-timeout']);
+                const showSettings = settingsTypes.has(type) || type.includes('transport') || type.includes('http');
+                return `<div class="query-error-actions">
+                    <button type="button" class="secondary" onclick="app.executeQuery()">${this.escapeHtml(this.t('retry'))}</button>
+                    ${showSettings ? `<button type="button" class="secondary" onclick="app.navigateTo('/app/settings/connection')">${this.escapeHtml(this.t('openSettings'))}</button>` : ''}
+                    ${showSettings ? `<button type="button" class="secondary" onclick="app.navigateTo('/app/settings/connection'); setTimeout(() => app.testConnection(), 150)">${this.escapeHtml(this.t('testConnection'))}</button>` : ''}
+                </div>`;
+            },
+
+            buildHttpQueryDiagnostic(response, text) {
+                const contentType = response.headers.get('content-type') || '(not provided)';
+                let payload = null;
+                if (text) {
+                    try { payload = JSON.parse(text); } catch { payload = null; }
+                }
+
+                if (payload && typeof payload === 'object') {
+                    return {
+                        errorType: payload.errorType || `http-${response.status}`,
+                        errorTitle: payload.errorTitle || this.getHttpQueryErrorTitle(response.status),
+                        errorMessage: payload.errorMessage || payload.error || response.statusText,
+                        errorCode: payload.errorCode || String(response.status),
+                        errorDetail: payload.errorDetail || text,
+                        fixRecommendation: payload.fixRecommendation || this.getHttpQueryErrorRecommendation(response.status),
+                        troubleshootingSteps: payload.troubleshootingSteps || []
+                    };
+                }
+
+                return {
+                    errorType: `http-${response.status}`,
+                    errorTitle: this.getHttpQueryErrorTitle(response.status),
+                    errorMessage: `The query endpoint returned HTTP ${response.status} ${response.statusText}.`,
+                    errorCode: String(response.status),
+                    errorDetail: `Content-Type: ${contentType}\n\n${text || '(empty response)'}`,
+                    fixRecommendation: this.getHttpQueryErrorRecommendation(response.status),
+                    troubleshootingSteps: ['Refresh the page and try again.', 'If this repeats, check the SQL Commander server logs.']
+                };
+            },
+
+            getHttpQueryErrorTitle(status) {
+                if (status === 400) return 'The query request was invalid.';
+                if (status === 404) return 'The query endpoint was not found.';
+                if (status === 413) return 'The query request is too large.';
+                if (status === 500) return 'SQL Commander hit a server error while executing the query.';
+                if (status === 503) return 'SQL Commander is temporarily unavailable.';
+                return 'The query endpoint returned an error.';
+            },
+
+            getHttpQueryErrorRecommendation(status) {
+                if (status === 400) return 'Refresh the page and try again. If the query is very large or generated, simplify it and retry.';
+                if (status === 404) return 'Refresh the page. The app route or query endpoint may be stale after a restart or deployment.';
+                if (status === 413) return 'Reduce the query text size or split the work into smaller queries.';
+                if (status === 500) return 'Check the SQL Commander logs for the server-side exception, then retry after fixing the reported issue.';
+                if (status === 503) return 'Wait a moment and retry. The app or hosting environment may still be starting.';
+                return 'Review the technical details and retry. If it repeats, check the SQL Commander logs.';
+            },
+
+            buildJsonParseQueryDiagnostic(parseError, text) {
+                const looksLikeHtml = /^\s*</.test(text || '');
+                return {
+                    errorType: 'invalid-json-response',
+                    errorTitle: looksLikeHtml ? 'The server returned an HTML error page instead of query results.' : 'The server returned an unexpected response.',
+                    errorMessage: `SQL Commander expected JSON query results but could not parse the response. ${parseError?.message || ''}`.trim(),
+                    fixRecommendation: 'Refresh the page and retry. If this repeats, check the SQL Commander logs for an unhandled server error.',
+                    errorDetail: (text || '').substring(0, 2000),
+                    troubleshootingSteps: ['The app may have returned a developer exception page, proxy error, or partial response.', 'Check whether the local server restarted during query execution.']
+                };
+            },
+
+            async buildTransportQueryDiagnostic(error) {
+                const message = error?.message || String(error || 'Failed to fetch');
+                const reachability = await this.checkAppReachability();
+                const appReachable = reachability.success === true;
+                return {
+                    errorType: appReachable ? 'query-transport-error' : 'app-unreachable',
+                    errorTitle: appReachable ? 'The browser could not complete the query request.' : 'SQL Commander could not be reached from the browser.',
+                    errorMessage: message,
+                    fixRecommendation: appReachable
+                        ? 'The app is reachable, but the query request failed before a response was received. Retry the query; if it repeats, check server logs and browser dev tools.'
+                        : 'The app may have restarted, stopped, or lost network connectivity. Refresh the page or restart the local server/container.',
+                    errorDetail: reachability.details ? `${message}\n\nReachability check:\n${reachability.details}` : message,
+                    troubleshootingSteps: appReachable
+                        ? ['Retry the query.', 'Check whether a browser extension, proxy, or development server restart interrupted the POST request.']
+                        : ['Refresh the page.', 'Confirm SQL Commander is still running at this URL.', 'If running in Docker, confirm the container and port mapping are healthy.']
+                };
+            },
+
+            async checkAppReachability() {
+                try {
+                    const response = await fetch('/health', { cache: 'no-store' });
+                    const text = await response.text();
+                    return {
+                        success: response.ok,
+                        details: `GET /health returned HTTP ${response.status} ${response.statusText}\n${text || '(empty response)'}`
+                    };
+                } catch (healthError) {
+                    try {
+                        const response = await fetch('?handler=Settings', { cache: 'no-store' });
+                        return {
+                            success: response.ok,
+                            details: `GET ?handler=Settings returned HTTP ${response.status} ${response.statusText}`
+                        };
+                    } catch (settingsError) {
+                        return {
+                            success: false,
+                            details: `GET /health failed: ${healthError?.message || healthError}\nGET ?handler=Settings failed: ${settingsError?.message || settingsError}`
+                        };
+                    }
+                }
             },
 
             async showSettings(tab = 'app') {
@@ -2476,6 +3053,17 @@
                 document.getElementById('settingDataApiRestEnabled').checked = settings.dataApiRestEnabled !== false;
                 document.getElementById('settingDataApiGraphQLEnabled').checked = settings.dataApiGraphQLEnabled !== false;
                 document.getElementById('settingDataApiMcpEnabled').checked = settings.dataApiMcpEnabled !== false;
+                document.getElementById('settingFormatKeywordCase').value = settings.formatKeywordCase || 'upper';
+                document.getElementById('settingFormatFunctionCase').value = settings.formatFunctionCase || 'preserve';
+                document.getElementById('settingFormatDataTypeCase').value = settings.formatDataTypeCase || 'preserve';
+                document.getElementById('settingFormatIndentStyle').value = settings.formatIndentStyle || 'standard';
+                document.getElementById('settingFormatIndentSize').value = settings.formatIndentSize ?? 4;
+                document.getElementById('settingFormatLogicalOperator').value = settings.formatLogicalOperatorPosition || 'before';
+                document.getElementById('settingFormatExpressionWidth').value = settings.formatExpressionWidth ?? 50;
+                document.getElementById('settingFormatLinesBetweenStatements').value = settings.formatLinesBetweenStatements ?? 1;
+                document.getElementById('settingFormatUseTabs').checked = settings.formatUseTabs === true;
+                document.getElementById('settingFormatDenseOperators').checked = settings.formatDenseOperators === true;
+                document.getElementById('settingFormatNewlineBeforeSemicolon').checked = settings.formatNewlineBeforeSemicolon === true;
                 document.getElementById('settingConnectionStringInput').value = '';
                 this.toggleAdvancedConnectionSettings(false);
                 this.onAuthTypeChange();
@@ -2504,7 +3092,18 @@
                     connectionName: '',
                     dataApiRestEnabled: document.getElementById('settingDataApiRestEnabled').checked,
                     dataApiGraphQLEnabled: document.getElementById('settingDataApiGraphQLEnabled').checked,
-                    dataApiMcpEnabled: document.getElementById('settingDataApiMcpEnabled').checked
+                    dataApiMcpEnabled: document.getElementById('settingDataApiMcpEnabled').checked,
+                    formatKeywordCase: document.getElementById('settingFormatKeywordCase').value,
+                    formatFunctionCase: document.getElementById('settingFormatFunctionCase').value,
+                    formatDataTypeCase: document.getElementById('settingFormatDataTypeCase').value,
+                    formatIndentStyle: document.getElementById('settingFormatIndentStyle').value,
+                    formatIndentSize: parseInt(document.getElementById('settingFormatIndentSize').value) || 4,
+                    formatLogicalOperatorPosition: document.getElementById('settingFormatLogicalOperator').value,
+                    formatExpressionWidth: parseInt(document.getElementById('settingFormatExpressionWidth').value) || 50,
+                    formatLinesBetweenStatements: parseInt(document.getElementById('settingFormatLinesBetweenStatements').value),
+                    formatUseTabs: document.getElementById('settingFormatUseTabs').checked,
+                    formatDenseOperators: document.getElementById('settingFormatDenseOperators').checked,
+                    formatNewlineBeforeSemicolon: document.getElementById('settingFormatNewlineBeforeSemicolon').checked
                 };
             },
 
@@ -2515,6 +3114,7 @@
                 document.getElementById('settingsConnectionStringPanel').classList.toggle('active', tab === 'connectionString');
                 document.getElementById('settingsDataApiPanel').classList.toggle('active', tab === 'dataApi');
                 document.getElementById('settingsNavigationPanel').classList.toggle('active', tab === 'navigation');
+                document.getElementById('settingsFormattingPanel').classList.toggle('active', tab === 'formatting');
                 if (tab === 'connectionString') {
                     this.refreshConnectionStringPreview();
                 }
@@ -3199,6 +3799,7 @@
             },
 
             async refreshMetadata() {
+                this.captureTreeExpansionState();
                 await this.loadMetadata({ maxAttempts: this.maxMetadataAttempts });
             },
 
@@ -3568,6 +4169,9 @@
                     } else if (e.ctrlKey && e.shiftKey && key === 'd') {
                         e.preventDefault();
                         this.navigateTo('/app/data-api/objects');
+                    } else if (e.ctrlKey && e.shiftKey && key === 'f') {
+                        e.preventDefault();
+                        this.formatQuery();
                     } else if (e.ctrlKey && key === 'f') {
                         e.preventDefault();
                         document.getElementById('filterInput').focus();

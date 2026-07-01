@@ -126,7 +126,8 @@ public sealed class DataApiBuilderService : IDataApiBuilderService
         try
         {
             var options = DataApiOptions.From(settings, request.RestEnabled, request.GraphQLEnabled, request.McpEnabled)
-                with { Port = GetAvailableDataApiPort(DefaultDataApiPort) };
+                with
+            { Port = GetAvailableDataApiPort(DefaultDataApiPort) };
             generated = await GenerateConfigFileAsync(settings, metadata, request.Selections, options, cancellationToken).ConfigureAwait(false);
             var diagnostics = generated.Diagnostics;
             var baseUrl = BuildBaseUrl(options.Port);

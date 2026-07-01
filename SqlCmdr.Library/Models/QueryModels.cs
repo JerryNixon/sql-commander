@@ -10,15 +10,23 @@ public record QueryResponse
 {
     private readonly List<string> _messages = [];
     private readonly List<ResultSet> _resultSets = [];
+    private readonly List<string> _troubleshootingSteps = [];
 
     public bool Success { get; init; }
     public string? ErrorMessage { get; init; }
+    public string? ErrorCode { get; init; }
+    public string? ErrorType { get; init; }
+    public string? ErrorTitle { get; init; }
+    public string? ErrorDetail { get; init; }
+    public string? FixRecommendation { get; init; }
+    public IReadOnlyList<string> TroubleshootingSteps => _troubleshootingSteps;
     public IReadOnlyList<string> Messages => _messages;
     public IReadOnlyList<ResultSet> ResultSets => _resultSets;
     public long ElapsedMilliseconds { get; init; }
     public int TotalRowsReturned { get; init; }
     public bool WasTruncated { get; init; }
 
+    public List<string> TroubleshootingStepsInternal => _troubleshootingSteps;
     public List<string> MessagesInternal => _messages;
     public List<ResultSet> ResultSetsInternal => _resultSets;
 }

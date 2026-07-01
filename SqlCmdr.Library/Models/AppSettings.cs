@@ -30,6 +30,17 @@ public record AppSettings
     public bool DataApiRestEnabled { get; init; } = true;
     public bool DataApiGraphQLEnabled { get; init; } = true;
     public bool DataApiMcpEnabled { get; init; } = true;
+    public string FormatKeywordCase { get; init; } = "upper";
+    public string FormatFunctionCase { get; init; } = "preserve";
+    public string FormatDataTypeCase { get; init; } = "preserve";
+    public string FormatIndentStyle { get; init; } = "standard";
+    public int FormatIndentSize { get; init; } = 4;
+    public bool FormatUseTabs { get; init; } = false;
+    public string FormatLogicalOperatorPosition { get; init; } = "before";
+    public int FormatExpressionWidth { get; init; } = 50;
+    public int FormatLinesBetweenStatements { get; init; } = 1;
+    public bool FormatDenseOperators { get; init; } = false;
+    public bool FormatNewlineBeforeSemicolon { get; init; } = false;
     public AuthenticationType AuthenticationType { get; init; } = AuthenticationType.SqlAuthentication;
     public string ConnectionString => ToConnectionString(includeCommandTimeout: true);
 
@@ -120,7 +131,36 @@ public record AppSettings
             Language = string.Equals(Language, "es", StringComparison.OrdinalIgnoreCase) ? "es" : "en",
             Encrypt = NormalizeEncrypt(Encrypt),
             Database = string.IsNullOrWhiteSpace(Database) ? "annalaura" : Database.Trim(),
-            ApplicationName = string.IsNullOrWhiteSpace(ApplicationName) ? "SQL Commander" : ApplicationName.Trim()
+            ApplicationName = string.IsNullOrWhiteSpace(ApplicationName) ? "SQL Commander" : ApplicationName.Trim(),
+            FormatKeywordCase = NormalizeCase(FormatKeywordCase, "upper"),
+            FormatFunctionCase = NormalizeCase(FormatFunctionCase, "preserve"),
+            FormatDataTypeCase = NormalizeCase(FormatDataTypeCase, "preserve"),
+            FormatIndentStyle = NormalizeIndentStyle(FormatIndentStyle),
+            FormatIndentSize = Math.Clamp(FormatIndentSize, 1, 8),
+            FormatLogicalOperatorPosition = string.Equals(FormatLogicalOperatorPosition, "after", StringComparison.OrdinalIgnoreCase) ? "after" : "before",
+            FormatExpressionWidth = Math.Clamp(FormatExpressionWidth, 20, 200),
+            FormatLinesBetweenStatements = Math.Clamp(FormatLinesBetweenStatements, 0, 5)
+        };
+    }
+
+    static string NormalizeCase(string value, string fallback)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "upper" => "upper",
+            "lower" => "lower",
+            "preserve" => "preserve",
+            _ => fallback
+        };
+    }
+
+    static string NormalizeIndentStyle(string value)
+    {
+        return value?.Trim() switch
+        {
+            "tabularLeft" => "tabularLeft",
+            "tabularRight" => "tabularRight",
+            _ => "standard"
         };
     }
 

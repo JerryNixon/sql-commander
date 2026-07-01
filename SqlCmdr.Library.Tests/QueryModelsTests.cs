@@ -78,6 +78,12 @@ public class QueryModelsTests
         // Assert
         response.Success.Should().BeFalse();
         response.ErrorMessage.Should().BeNull();
+        response.ErrorCode.Should().BeNull();
+        response.ErrorType.Should().BeNull();
+        response.ErrorTitle.Should().BeNull();
+        response.ErrorDetail.Should().BeNull();
+        response.FixRecommendation.Should().BeNull();
+        response.TroubleshootingSteps.Should().NotBeNull().And.BeEmpty();
         response.Messages.Should().NotBeNull().And.BeEmpty();
         response.ResultSets.Should().NotBeNull().And.BeEmpty();
         response.ElapsedMilliseconds.Should().Be(0);
@@ -118,6 +124,31 @@ public class QueryModelsTests
         // Assert
         response.Success.Should().BeFalse();
         response.ErrorMessage.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void QueryResponse_WithDiagnostics_HasActionableErrorProperties()
+    {
+        // Arrange & Act
+        var response = new QueryResponse
+        {
+            Success = false,
+            ErrorMessage = "Invalid object name 'Users'.",
+            ErrorCode = "208",
+            ErrorType = "object-not-found",
+            ErrorTitle = "Object or column was not found.",
+            ErrorDetail = "SQL 208, state 1, class 16, line 1: Invalid object name 'Users'.",
+            FixRecommendation = "Refresh metadata and check schema qualification."
+        };
+        response.TroubleshootingStepsInternal.Add("Use two-part names like schema.object.");
+
+        // Assert
+        response.ErrorCode.Should().Be("208");
+        response.ErrorType.Should().Be("object-not-found");
+        response.ErrorTitle.Should().Contain("Object");
+        response.ErrorDetail.Should().Contain("SQL 208");
+        response.FixRecommendation.Should().NotBeNullOrWhiteSpace();
+        response.TroubleshootingSteps.Should().ContainSingle();
     }
 
     [Fact]

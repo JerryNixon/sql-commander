@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using SqlCmdr.Helpers;
 using SqlCmdr.Abstractions;
 using SqlCmdr.Models;
 using System.Text.Json;
@@ -129,10 +130,30 @@ public class IndexModel : PageModel
     {
         try
         {
+            if (request == null)
+            {
+                var invalidRequest = new QueryErrorDiagnostic(
+                    "invalid-request",
+                    "The query request was invalid.",
+                    "No query request body was received.",
+                    "Refresh the page and try again.");
+                return new JsonResult(invalidRequest.ToFailedResponse());
+            }
+
             var settings = await GetEffectiveSettingsAsync();
             if (string.IsNullOrWhiteSpace(settings.Server))
             {
-                return new JsonResult(new QueryResponse { Success = false, ErrorMessage = "No connection configured" });
+                var noConnection = new QueryErrorDiagnostic(
+                    "no-connection",
+                    "No connection configured.",
+                    "SQL Commander does not have a server configured for this browser session.",
+                    "Open Settings, enter connection details, save them, and try the query again.",
+                    TroubleshootingSteps:
+                    [
+                        "Open Settings from the status bar or gear button.",
+                        "Use Test Connection before running the query again."
+                    ]);
+                return new JsonResult(noConnection.ToFailedResponse());
             }
 
             var requestWithLimit = request with { ResultLimit = request.ResultLimit ?? settings.DefaultResultLimit };
@@ -142,7 +163,7 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to execute query");
-            return new JsonResult(new QueryResponse { Success = false, ErrorMessage = ex.Message });
+            return new JsonResult(QueryErrorDiagnostics.FromException(ex).ToFailedResponse());
         }
     }
 
