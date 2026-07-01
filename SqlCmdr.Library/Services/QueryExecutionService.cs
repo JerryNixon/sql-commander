@@ -5,6 +5,7 @@ using SqlCmdr.Infrastructure;
 using SqlCmdr.Models;
 using Microsoft.Data.SqlClient;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace SqlCmdr.Services;
 
@@ -103,7 +104,7 @@ public class QueryExecutionService : IQueryExecutionService
                         var row = new Dictionary<string, object?>();
                         for (var i = 0; i < reader.FieldCount; i++)
                         {
-                            row[columnNames[i]] = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                            row[columnNames[i]] = reader.IsDBNull(i) ? null : CoerceValueForTransport(reader.GetValue(i));
                         }
                         resultSet.RowsInternal.Add(row);
                         rowCount++;
@@ -169,5 +170,19 @@ public class QueryExecutionService : IQueryExecutionService
             names.Add(name);
         }
         return names;
+    }
+
+    // JSON numbers are parsed as IEEE-754 doubles in the browser, so 64-bit integers beyond
+    // 2^53 and high-precision decimals would lose precision silently. Send those as strings so
+    // the grid shows the exact value; every other type serializes normally.
+    internal static object? CoerceValueForTransport(object? value)
+    {
+        return value switch
+        {
+            long l => l.ToString(CultureInfo.InvariantCulture),
+            ulong ul => ul.ToString(CultureInfo.InvariantCulture),
+            decimal d => d.ToString(CultureInfo.InvariantCulture),
+            _ => value
+        };
     }
 }

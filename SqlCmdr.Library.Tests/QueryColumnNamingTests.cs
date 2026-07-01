@@ -49,4 +49,32 @@ public class QueryColumnNamingTests
 
         act.Should().Throw<ArgumentNullException>();
     }
+
+    [Fact]
+    public void CoerceValueForTransport_LargeBigint_BecomesExactString()
+    {
+        // > 2^53: would lose precision as a JSON number parsed by the browser.
+        QueryExecutionService.CoerceValueForTransport(9007199254740993L).Should().Be("9007199254740993");
+        QueryExecutionService.CoerceValueForTransport(1234567890123456789L).Should().Be("1234567890123456789");
+    }
+
+    [Fact]
+    public void CoerceValueForTransport_Decimal_BecomesExactString()
+    {
+        QueryExecutionService.CoerceValueForTransport(12345678901234567890.12m).Should().Be("12345678901234567890.12");
+        QueryExecutionService.CoerceValueForTransport(10.50m).Should().Be("10.50");
+    }
+
+    [Fact]
+    public void CoerceValueForTransport_OtherTypes_PassThroughUnchanged()
+    {
+        var timestamp = new DateTime(2024, 1, 2, 3, 4, 5);
+
+        QueryExecutionService.CoerceValueForTransport(42).Should().Be(42);
+        QueryExecutionService.CoerceValueForTransport(3.14d).Should().Be(3.14d);
+        QueryExecutionService.CoerceValueForTransport(true).Should().Be(true);
+        QueryExecutionService.CoerceValueForTransport("hello").Should().Be("hello");
+        QueryExecutionService.CoerceValueForTransport(timestamp).Should().Be(timestamp);
+        QueryExecutionService.CoerceValueForTransport(null).Should().BeNull();
+    }
 }
