@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using SqlCmdr.Models;
 
 namespace SqlCmdr.Helpers;
@@ -29,6 +29,8 @@ public static class QueryErrorDiagnostics
         "Compare the values with column definitions and constraints."
     ];
 
+    // Ordered classification rules. The first rule whose SQL error number or message
+    // predicate matches wins, so more specific categories are listed before broader ones.
     private static readonly IReadOnlyList<DiagnosticRule> Rules =
     [
         new("server-unreachable",
@@ -50,7 +52,7 @@ public static class QueryErrorDiagnostics
             "Add a firewall rule for this client/container host or connect from an allowed network.",
             [
                 "In Azure Portal, add the current client IP to the SQL server firewall rules.",
-                "If SQL Commander runs in a container/cloud host, allow that host''s outbound IP."
+                "If SQL Commander runs in a container/cloud host, allow that host's outbound IP."
             ],
             Numbers: [40615],
             MessageMatch: m => m.Contains("client with ip address") && m.Contains("is not allowed")),
@@ -191,6 +193,7 @@ public static class QueryErrorDiagnostics
         var safeMessage = string.IsNullOrWhiteSpace(message) ? GenericMessage : message!;
         var normalized = safeMessage.ToLowerInvariant();
 
+        // Timeout is handled first because it also drives a distinct default message.
         if (number is -2 || normalized.Contains("timeout expired"))
         {
             return Timeout(safeMessage, code, detail);
@@ -207,6 +210,10 @@ public static class QueryErrorDiagnostics
         return FromMessage(code, safeMessage, detail);
     }
 
+    /// <summary>
+    /// Projects a diagnostic onto a <see cref="QueryResponse"/>. When <paramref name="baseResponse"/>
+    /// is supplied, any messages/result sets already collected on it are preserved.
+    /// </summary>
     public static QueryResponse ToFailedResponse(this QueryErrorDiagnostic diagnostic, QueryResponse? baseResponse = null, long elapsedMilliseconds = 0)
     {
         ArgumentNullException.ThrowIfNull(diagnostic);

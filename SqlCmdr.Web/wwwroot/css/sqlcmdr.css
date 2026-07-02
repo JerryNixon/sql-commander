@@ -705,14 +705,26 @@ body {
     display: inline-flex;
     flex: 0 0 auto;
     justify-content: center;
-    margin-inline-end: 8px;
+    line-height: 1;
+    margin-inline-end: 0;
     min-width: 12px;
+}
+
+.toolbar-button-icon svg {
+    display: block;
+    fill: none;
+    height: 14px;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.7;
+    width: 14px;
 }
 
 .editor-toolbar button.execute {
     background: var(--accent-blue);
     color: white;
-    gap: 8px;
+    gap: 4px;
 }
 
 .editor-toolbar button.execute:hover:not(:disabled) {
@@ -729,7 +741,7 @@ body {
 .editor-toolbar button.format {
     background: var(--button-secondary);
     color: var(--text-primary);
-    gap: 8px;
+    gap: 4px;
     min-width: 82px;
 }
 
@@ -1217,8 +1229,9 @@ body #statusConnection.failed::before {
 }
 
 #schemaContainer svg {
+    display: block;
+    flex: 0 0 auto;
     max-width: none !important;
-    height: auto !important;
     cursor: inherit;
 }
 

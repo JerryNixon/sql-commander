@@ -54,7 +54,7 @@
                     <div class="editor-toolbar">
                         <div class="toolbar-left">
                             <button id="executeBtn" class="execute" onclick="app.executeQuery()" title="Execute Query (Ctrl+E)" data-i18n-title="executeTitle"><span class="toolbar-button-icon" aria-hidden="true">▶</span><span data-i18n="execute">Execute</span></button>
-                            <button id="formatBtn" class="format" onclick="app.formatQuery()" title="Format SQL (Ctrl+Shift+F)" data-i18n-title="formatSqlTitle"><span class="toolbar-button-icon" aria-hidden="true">≡</span><span data-i18n="formatSql">Format</span></button>
+                            <button id="formatBtn" class="format" onclick="app.formatQuery()" title="Format SQL (Ctrl+Shift+F)" data-i18n-title="formatSqlTitle"><span class="toolbar-button-icon format-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M7 4h6M7 8h6M7 12h6" /><path d="M3 6.5 5 8l-2 1.5" /></svg></span><span data-i18n="formatSql">Format</span></button>
                             <button id="cancelBtn" class="cancel" onclick="app.cancelQuery()" style="display: none;" data-i18n="cancel">Cancel</button>
                         </div>
                         <div class="toolbar-right">
@@ -375,8 +375,7 @@
                         <span style="font-size: 12px; color: var(--text-secondary);" data-i18n="zoom">Zoom:</span>
                         <button onclick="app.zoomSchema(0.75)" style="padding: 4px 12px; font-size: 14px;" title="Zoom Out (Ctrl + Mouse Wheel Down)" data-i18n-title="zoomOutTitle">−</button>
                         <button onclick="app.zoomSchema(1.5)" style="padding: 4px 12px; font-size: 14px;" title="Zoom In (Ctrl + Mouse Wheel Up)" data-i18n-title="zoomInTitle">+</button>
-                        <button onclick="app.zoomSchema('reset')" style="padding: 4px 12px; font-size: 12px;" title="Reset Zoom" data-i18n="reset" data-i18n-title="resetZoomTitle">Reset</button>
-                        <button onclick="app.zoomSchema('fit')" style="padding: 4px 12px; font-size: 12px;" title="Fit to Window" data-i18n="fit" data-i18n-title="fitToWindowTitle">Fit</button>
+                        <button onclick="app.zoomSchema('fit')" style="padding: 4px 12px; font-size: 12px;" title="Reset Zoom" data-i18n="reset" data-i18n-title="resetZoomTitle">Reset</button>
                         <span id="zoomLevel" style="font-size: 12px; color: var(--text-secondary); min-width: 50px; text-align: right;"></span>
                     </div>
                 </div>
@@ -388,7 +387,7 @@
                     <div style="font-weight: 500; margin-bottom: 8px;" data-i18n="navigationTips">💡 Navigation Tips</div>
                     <div style="font-size: 12px; line-height: 1.6;">
                         <span data-i18n="schemaNavigationPanZoom">Drag to pan • Ctrl + Scroll to zoom</span><br>
-                        <span data-i18n="schemaNavigationKeyboard">+/− keys to zoom • F to fit • 0 to reset</span>
+                        <span data-i18n="schemaNavigationKeyboard">+/− keys to zoom • F/0 to reset</span>
                     </div>
                 </div>
             </div>
@@ -422,9 +421,12 @@
             settings: null,
             editor: null,
             mermaidPromise: null,
-            currentSchemaScale: 2.5,
+            mermaidElkPromise: null,
+            mermaidElkAvailable: false,
+            currentSchemaScale: 1,
             baseSchemaWidth: 800,
             baseSchemaHeight: 600,
+            schemaLayoutEdgeLabel: 'SQLCMDR_LAYOUT',
             isPanning: false,
             panStart: { x: 0, y: 0 },
             scrollStart: { x: 0, y: 0 },
@@ -488,7 +490,7 @@
                     selectKeyFieldsFor: 'Select key fields for: {0}', selectAtLeastOneDataApiObject: 'Select at least one object to start Data API.', startDataApiWithSelectedObjects: 'Start Data API with {0} selected {1}.', selectAtLeastOneObject: 'Select at least one object.',
                     toggleExplorer: 'Toggle Explorer', toggleExplorerTitle: 'Toggle Explorer (Ctrl+B)', clearFilter: 'Clear filter', clearFilterTitle: 'Clear filter (Escape)', diagramTitle: 'Diagram (Ctrl+Shift+S)', dataApiTitle: 'Data API (Ctrl+Shift+D)', executeTitle: 'Execute Query (Ctrl+E)', formatSqlTitle: 'Format SQL (Ctrl+Shift+F)', settingsTitle: 'Settings (Ctrl+,)',
                     dataApiIsRunning: 'Data API is running', dataApiEndpoints: 'Data API endpoints', viewHealth: 'View Health', openSwagger: 'Open Swagger', openGraphQL: 'Open GraphQL', configureStart: 'Configure / Start',
-                    databaseSchema: 'Database Schema', zoom: 'Zoom:', zoomOutTitle: 'Zoom Out (Ctrl + Mouse Wheel Down)', zoomInTitle: 'Zoom In (Ctrl + Mouse Wheel Up)', reset: 'Reset', resetZoomTitle: 'Reset Zoom', fit: 'Fit', fitToWindowTitle: 'Fit to Window', navigationTips: '💡 Navigation Tips', schemaNavigationPanZoom: 'Drag to pan • Ctrl + Scroll to zoom', schemaNavigationKeyboard: '+/− keys to zoom • F to fit • 0 to reset',
+                    databaseSchema: 'Database Schema', zoom: 'Zoom:', zoomOutTitle: 'Zoom Out (Ctrl + Mouse Wheel Down)', zoomInTitle: 'Zoom In (Ctrl + Mouse Wheel Up)', reset: 'Reset', resetZoomTitle: 'Reset Zoom', fit: 'Fit', fitToWindowTitle: 'Fit Width', navigationTips: '💡 Navigation Tips', schemaNavigationPanZoom: 'Drag to pan • Ctrl + Scroll to zoom', schemaNavigationKeyboard: '+/− keys to zoom • F/0 to reset',
                     openSettings: 'Open Settings', retry: 'Retry', noResultsReturned: 'No results returned.', messages: 'Messages:', endpointsAvailableAfterStart: 'Endpoints are available after Data API starts.', unknownConnectionError: 'Unknown error while connecting to the database.', unableToConnectAfter: 'Unable to connect to the database after {0}.', attempt: 'attempt', attempts: 'attempts', seeResultsPane: 'See the results pane for full error details.',
                     connectionAttemptOf: 'Attempt {0} of {1}', attemptingConnection: 'Attempting connection', connectingToDatabase: 'Connecting to database…', target: 'Target', noAdditionalDetails: 'No additional details were provided.', databaseConnectionFailed: 'Database connection failed',
                     statusServerTitle: 'Server', statusUserTitle: 'User', statusDatabaseTitle: 'Database', statusQueryTitle: 'Query status', statusTimeTitle: 'Query duration', statusRowsTitle: 'Rows returned', connectionStatusTitle: 'Connection status', status: 'Status', connectedTo: 'Connected to {0}', connectedToDatabase: 'Connected to database',
@@ -519,7 +521,7 @@
                     selectKeyFieldsFor: 'Selecciona campos clave para: {0}', selectAtLeastOneDataApiObject: 'Selecciona al menos un objeto para iniciar Data API.', startDataApiWithSelectedObjects: 'Iniciar Data API con {0} {1} seleccionados.', selectAtLeastOneObject: 'Selecciona al menos un objeto.',
                     toggleExplorer: 'Alternar explorador', toggleExplorerTitle: 'Alternar explorador (Ctrl+B)', clearFilter: 'Borrar filtro', clearFilterTitle: 'Borrar filtro (Escape)', diagramTitle: 'Diagrama (Ctrl+Shift+S)', dataApiTitle: 'Data API (Ctrl+Shift+D)', executeTitle: 'Ejecutar consulta (Ctrl+E)', formatSqlTitle: 'Formatear SQL (Ctrl+Shift+F)', settingsTitle: 'Configuración (Ctrl+,)',
                     dataApiIsRunning: 'Data API está en ejecución', dataApiEndpoints: 'Endpoints de Data API', viewHealth: 'Ver estado', openSwagger: 'Abrir Swagger', openGraphQL: 'Abrir GraphQL', configureStart: 'Configurar / Iniciar',
-                    databaseSchema: 'Esquema de base de datos', zoom: 'Zoom:', zoomOutTitle: 'Alejar (Ctrl + rueda del mouse hacia abajo)', zoomInTitle: 'Acercar (Ctrl + rueda del mouse hacia arriba)', reset: 'Restablecer', resetZoomTitle: 'Restablecer zoom', fit: 'Ajustar', fitToWindowTitle: 'Ajustar a la ventana', navigationTips: '💡 Consejos de navegación', schemaNavigationPanZoom: 'Arrastra para desplazar • Ctrl + rueda para zoom', schemaNavigationKeyboard: 'Teclas +/− para zoom • F para ajustar • 0 para restablecer',
+                    databaseSchema: 'Esquema de base de datos', zoom: 'Zoom:', zoomOutTitle: 'Alejar (Ctrl + rueda del mouse hacia abajo)', zoomInTitle: 'Acercar (Ctrl + rueda del mouse hacia arriba)', reset: 'Restablecer', resetZoomTitle: 'Restablecer zoom', fit: 'Ajustar', fitToWindowTitle: 'Ajustar al ancho', navigationTips: '💡 Consejos de navegación', schemaNavigationPanZoom: 'Arrastra para desplazar • Ctrl + rueda para zoom', schemaNavigationKeyboard: 'Teclas +/− para zoom • F/0 para restablecer',
                     openSettings: 'Abrir configuración', retry: 'Reintentar', noResultsReturned: 'No se devolvieron resultados.', messages: 'Mensajes:', endpointsAvailableAfterStart: 'Los endpoints estarán disponibles después de iniciar Data API.', unknownConnectionError: 'Error desconocido al conectar con la base de datos.', unableToConnectAfter: 'No se pudo conectar con la base de datos después de {0}.', attempt: 'intento', attempts: 'intentos', seeResultsPane: 'Consulta el panel de resultados para ver los detalles completos del error.',
                     connectionAttemptOf: 'Intento {0} de {1}', attemptingConnection: 'Intentando conectar', connectingToDatabase: 'Conectando con la base de datos…', target: 'Destino', noAdditionalDetails: 'No se proporcionaron detalles adicionales.', databaseConnectionFailed: 'Error de conexión con la base de datos',
                     statusServerTitle: 'Servidor', statusUserTitle: 'Usuario', statusDatabaseTitle: 'Base de datos', statusQueryTitle: 'Estado de consulta', statusTimeTitle: 'Duración de consulta', statusRowsTitle: 'Filas devueltas', connectionStatusTitle: 'Estado de conexión', status: 'Estado', connectedTo: 'Conectado a {0}', connectedToDatabase: 'Conectado a la base de datos',
@@ -870,6 +872,15 @@
                 if (!element) return;
                 element.dataset.state = state || '';
                 element.textContent = text || this.t(state) || text || '';
+            },
+
+            formatElapsedTime(milliseconds, { running = false } = {}) {
+                const elapsed = Number(milliseconds);
+                if (!Number.isFinite(elapsed)) return '-';
+                if (elapsed < 1) return '<1ms';
+                if (elapsed < 1000) return `${Math.min(999, Math.max(1, Math.round(elapsed)))}ms`;
+
+                return `${(elapsed / 1000).toFixed(running ? 1 : 2)}s`;
             },
 
             setupStatusTitles() {
@@ -1269,13 +1280,23 @@
 
             getMermaidConfig() {
                 const isLightTheme = this.settings && this.settings.theme === 'light';
+                const layout = this.mermaidElkAvailable ? 'elk' : 'dagre';
                 return {
                     startOnLoad: false,
                     theme: isLightTheme ? 'default' : 'dark',
+                    layout,
+                    elk: {
+                        mergeEdges: false,
+                        nodePlacementStrategy: 'BRANDES_KOEPF',
+                        cycleBreakingStrategy: 'GREEDY_MODEL_ORDER',
+                        considerModelOrder: 'NODES_AND_EDGES'
+                    },
                     er: {
-                        useMaxWidth: true,
+                        useMaxWidth: false,
                         fontSize: 14,
-                        layoutDirection: 'TB'
+                        layoutDirection: 'TB',
+                        nodeSpacing: 140,
+                        rankSpacing: 80
                     },
                     flowchart: {
                         useMaxWidth: true
@@ -1305,9 +1326,44 @@
                         script.onload = initializeMermaid;
                         script.onerror = () => reject(new Error('Failed to load Mermaid script.'));
                         document.body.appendChild(script);
+                    }).then(async () => {
+                        await this.loadMermaidElkLayout();
+                        try {
+                            mermaid.initialize(this.getMermaidConfig());
+                        } catch (configError) {
+                            console.warn('Mermaid reinitialization after ELK registration failed; continuing with the default layout.', configError);
+                        }
                     });
                 }
                 return this.mermaidPromise;
+            },
+
+            loadMermaidElkLayout() {
+                if (this.mermaidElkPromise) {
+                    return this.mermaidElkPromise;
+                }
+
+                const mermaidScope = `${String.fromCharCode(64)}mermaid-js`;
+                const elkLayoutModuleUrl = `https://cdn.jsdelivr.net/npm/${mermaidScope}/layout-elk@0/dist/mermaid-layout-elk.esm.min.mjs`;
+
+                this.mermaidElkPromise = import(elkLayoutModuleUrl)
+                    .then(module => {
+                        const elkLayouts = module.default || module;
+                        if (typeof mermaid?.registerLayoutLoaders !== 'function') {
+                            throw new Error('Mermaid registerLayoutLoaders API is not available.');
+                        }
+
+                        mermaid.registerLayoutLoaders(elkLayouts);
+                        this.mermaidElkAvailable = true;
+                        return true;
+                    })
+                    .catch(error => {
+                        this.mermaidElkAvailable = false;
+                        console.warn('Mermaid ELK layout failed to load; falling back to Dagre layout.', error);
+                        return false;
+                    });
+
+                return this.mermaidElkPromise;
             },
 
             initEditor() {
@@ -1614,7 +1670,7 @@
                 if (this.formatFeedbackTimer) clearTimeout(this.formatFeedbackTimer);
                 this.formatFeedbackTimer = setTimeout(() => {
                     button.classList.remove('format-success', 'format-error', 'format-info');
-                    button.innerHTML = `<span class="toolbar-button-icon" aria-hidden="true">≡</span><span data-i18n="formatSql">${this.escapeHtml(this.t('formatSql'))}</span>`;
+                    button.innerHTML = `<span class="toolbar-button-icon format-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M7 4h6M7 8h6M7 12h6" /><path d="M3 6.5 5 8l-2 1.5" /></svg></span><span data-i18n="formatSql">${this.escapeHtml(this.t('formatSql'))}</span>`;
                     button.title = this.t('formatSqlTitle');
                     this.formatFeedbackTimer = null;
                 }, type === 'error' ? 3200 : 1800);
@@ -2679,19 +2735,19 @@
                 const cancelBtn = document.getElementById('cancelBtn');
                 
                 executeBtn.disabled = true;
-                executeBtn.style.display = 'inline-block';
+                executeBtn.style.display = 'inline-flex';
                 cancelBtn.style.display = 'inline-block';
                 cancelBtn.disabled = false;
                 cancelBtn.textContent = this.t('cancel');
                 
                 this.setStatusQuery('running', this.t('running'));
-                document.getElementById('statusTime').textContent = '0.0s';
+                document.getElementById('statusTime').textContent = this.formatElapsedTime(0);
                 document.getElementById('statusRows').textContent = '';
                 document.getElementById('resultsContainer').innerHTML = '<div class="loading">Executing query...</div>';
 
                 this.timerInterval = setInterval(() => {
                     const elapsed = Date.now() - this.startTime;
-                    document.getElementById('statusTime').textContent = `${(elapsed / 1000).toFixed(1)}s`;
+                    document.getElementById('statusTime').textContent = this.formatElapsedTime(elapsed, { running: true });
                 }, 100);
 
                 this.queryAbortController = new AbortController();
@@ -2784,7 +2840,7 @@
                 cancelBtn.style.display = 'none';
                 statusElement.dataset.state = 'cancelled';
                 statusElement.textContent = this.t('cancelled');
-                document.getElementById('statusTime').textContent = `${(elapsed / 1000).toFixed(2)}s`;
+                document.getElementById('statusTime').textContent = this.formatElapsedTime(elapsed);
                 document.getElementById('statusRows').textContent = '';
                 document.getElementById('resultsContainer').innerHTML = 
                     '<div style="color: var(--text-secondary); font-size: 13px;">Query cancelled by user.</div>';
@@ -2819,7 +2875,7 @@
                 if (!result.success) {
                     this.displayQueryFailure(result);
                     this.setStatusQuery('failed', 'Failed');
-                    document.getElementById('statusTime').textContent = `${(result.elapsedMilliseconds / 1000).toFixed(2)}s`;
+                    document.getElementById('statusTime').textContent = this.formatElapsedTime(result.elapsedMilliseconds);
                     return;
                 }
 
@@ -2866,7 +2922,7 @@
                 container.innerHTML = html;
                 
                 this.setStatusQuery('completed', this.t('completed'));
-                document.getElementById('statusTime').textContent = `${(result.elapsedMilliseconds / 1000).toFixed(2)}s`;
+                document.getElementById('statusTime').textContent = this.formatElapsedTime(result.elapsedMilliseconds);
                 document.getElementById('statusRows').textContent = `${result.totalRowsReturned} rows`;
                 
                 if (result.wasTruncated) {
@@ -3816,6 +3872,211 @@
                 await this.loadMetadata({ maxAttempts: this.maxMetadataAttempts });
             },
 
+            getSchemaDiagramLookupKey(schema, name) {
+                return `${schema || ''}\u001f${name || ''}`;
+            },
+
+            sanitizeMermaidIdentifier(value, fallback = 'item') {
+                const text = String(value || fallback).trim() || fallback;
+                const safe = text.replace(/[^a-zA-Z0-9_]/g, '_').replace(/_+/g, '_');
+                return /^[A-Za-z_]/.test(safe) ? safe : `_${safe}`;
+            },
+
+            sanitizeMermaidType(value) {
+                return String(value || 'string')
+                    .trim()
+                    .replace(/\s+/g, '_')
+                    .replace(/[{}"`]/g, '') || 'string';
+            },
+
+            escapeMermaidLabel(value, fallback = 'relates') {
+                return String(value || fallback)
+                    .replace(/["\r\n]/g, match => match === '"' ? "'" : ' ')
+                    .trim() || fallback;
+            },
+
+            buildSchemaDiagramTableKeys(tables) {
+                const keys = new Map();
+                const used = new Set();
+
+                (tables || []).forEach(table => {
+                    const base = `${this.sanitizeMermaidIdentifier(table.schema, 'schema')}_${this.sanitizeMermaidIdentifier(table.name, 'table')}`;
+                    let key = base;
+                    let suffix = 2;
+
+                    while (used.has(key)) {
+                        key = `${base}_${suffix++}`;
+                    }
+
+                    used.add(key);
+                    keys.set(this.getSchemaDiagramLookupKey(table.schema, table.name), key);
+                });
+
+                return keys;
+            },
+
+            buildSchemaEntityDefinition(tableKey, table) {
+                let erd = `    ${tableKey} {\n`;
+
+                (table.columns || []).slice(0, 10).forEach((col, index) => {
+                    const safeColName = this.sanitizeMermaidIdentifier(col.name, `column_${index + 1}`);
+                    const typeInfo = this.sanitizeMermaidType(col.dataType || 'string');
+                    const nullInfo = col.isNullable === false ? ' "NOT NULL"' : '';
+                    erd += `        ${typeInfo} ${safeColName}${nullInfo}\n`;
+                });
+
+                if ((table.columns || []).length > 10) {
+                    erd += `        string more_columns "..."\n`;
+                }
+
+                erd += `    }\n`;
+                return erd;
+            },
+
+            getSchemaDiagramFrontmatter() {
+                const layout = this.mermaidElkAvailable ? 'elk' : 'dagre';
+                const elkConfig = layout === 'elk'
+                    ? `  elk:\n    mergeEdges: false\n    nodePlacementStrategy: BRANDES_KOEPF\n    cycleBreakingStrategy: GREEDY_MODEL_ORDER\n    considerModelOrder: NODES_AND_EDGES\n`
+                    : '';
+
+                return `---\nconfig:\n  layout: ${layout}\n${elkConfig}  er:\n    useMaxWidth: false\n    layoutDirection: TB\n    nodeSpacing: 140\n    rankSpacing: 80\n---\n`;
+            },
+
+            getSchemaDiagramComponents(tableKeys, foreignKeys) {
+                const orderedKeys = Array.from(tableKeys.values());
+                const keyOrder = new Map(orderedKeys.map((key, index) => [key, index]));
+                const adjacency = new Map(orderedKeys.map(key => [key, new Set()]));
+
+                (foreignKeys || []).forEach(fk => {
+                    const childKey = tableKeys.get(this.getSchemaDiagramLookupKey(fk.parentSchema, fk.parentTable));
+                    const parentKey = tableKeys.get(this.getSchemaDiagramLookupKey(fk.referencedSchema, fk.referencedTable));
+
+                    if (!childKey || !parentKey || childKey === parentKey) return;
+                    adjacency.get(childKey)?.add(parentKey);
+                    adjacency.get(parentKey)?.add(childKey);
+                });
+
+                const visited = new Set();
+                const components = [];
+
+                orderedKeys.forEach(startKey => {
+                    if (visited.has(startKey)) return;
+
+                    const component = [];
+                    const stack = [startKey];
+                    visited.add(startKey);
+
+                    while (stack.length > 0) {
+                        const key = stack.pop();
+                        component.push(key);
+
+                        adjacency.get(key)?.forEach(nextKey => {
+                            if (!visited.has(nextKey)) {
+                                visited.add(nextKey);
+                                stack.push(nextKey);
+                            }
+                        });
+                    }
+
+                    component.sort((a, b) => keyOrder.get(a) - keyOrder.get(b));
+                    components.push(component);
+                });
+
+                return components.sort((a, b) => {
+                    const aHasRelationships = a.some(key => (adjacency.get(key)?.size || 0) > 0);
+                    const bHasRelationships = b.some(key => (adjacency.get(key)?.size || 0) > 0);
+
+                    if (aHasRelationships !== bHasRelationships) {
+                        return aHasRelationships ? -1 : 1;
+                    }
+
+                    return keyOrder.get(a[0]) - keyOrder.get(b[0]);
+                });
+            },
+
+            hideSchemaLayoutEdges(svgElement) {
+                if (!svgElement) return 0;
+
+                const relationshipPaths = Array.from(svgElement.querySelectorAll('path.relationshipLine'));
+                const hiddenDataIds = new Set();
+                let hiddenCount = 0;
+
+                svgElement.querySelectorAll('g.label[data-id]').forEach(label => {
+                    if (!(label.textContent || '').includes(this.schemaLayoutEdgeLabel)) return;
+
+                    const edgeLabel = label.closest('g.edgeLabel') || label;
+                    const dataId = label.getAttribute('data-id') || '';
+                    if (dataId && hiddenDataIds.has(dataId)) return;
+
+                    const path = dataId
+                        ? relationshipPaths.find(candidate => (candidate.id || '').endsWith(dataId))
+                        : null;
+
+                    edgeLabel.style.display = 'none';
+                    edgeLabel.setAttribute('aria-hidden', 'true');
+                    label.style.display = 'none';
+
+                    if (path) {
+                        path.style.display = 'none';
+                        path.setAttribute('aria-hidden', 'true');
+                    }
+
+                    if (dataId) hiddenDataIds.add(dataId);
+                    hiddenCount++;
+                });
+
+                return hiddenCount;
+            },
+
+            getSchemaFitScale(container, originalWidth, originalHeight) {
+                const containerWidth = Math.max(200, (container.clientWidth || container.offsetWidth || originalWidth) - 40);
+                const containerHeight = Math.max(200, (container.clientHeight || container.offsetHeight || originalHeight) - 40);
+                const diagramAspectRatio = originalWidth / originalHeight;
+                const containerAspectRatio = containerWidth / containerHeight;
+
+                return diagramAspectRatio < containerAspectRatio
+                    ? containerHeight / originalHeight
+                    : containerWidth / originalWidth;
+            },
+
+            getSchemaWidthFitScale(container, originalWidth) {
+                const containerWidth = Math.max(200, (container.clientWidth || container.offsetWidth || originalWidth) - 40);
+                return containerWidth / Math.max(1, originalWidth);
+            },
+
+            getReadableSchemaScale(container, originalWidth, originalHeight) {
+                const fitScale = this.getSchemaFitScale(container, originalWidth, originalHeight);
+                const containerWidth = Math.max(200, (container.clientWidth || container.offsetWidth || originalWidth) - 40);
+                const readableWidthScale = Math.min(0.45, Math.max(0.18, containerWidth / originalWidth));
+                return Math.max(fitScale, readableWidthScale);
+            },
+
+            applySchemaScale(svgElement, { preserveCenter = true } = {}) {
+                const container = document.getElementById('schemaContainer');
+                if (!svgElement || !container) return;
+
+                const previousWidth = parseFloat(svgElement.style.width) || svgElement.getBoundingClientRect().width || this.baseSchemaWidth;
+                const previousHeight = parseFloat(svgElement.style.height) || svgElement.getBoundingClientRect().height || this.baseSchemaHeight;
+                const centerRatioX = previousWidth > 0 ? (container.scrollLeft + container.clientWidth / 2) / previousWidth : 0;
+                const centerRatioY = previousHeight > 0 ? (container.scrollTop + container.clientHeight / 2) / previousHeight : 0;
+                const scaledWidth = Math.max(1, this.baseSchemaWidth * this.currentSchemaScale);
+                const scaledHeight = Math.max(1, this.baseSchemaHeight * this.currentSchemaScale);
+
+                svgElement.style.width = `${scaledWidth}px`;
+                svgElement.style.height = `${scaledHeight}px`;
+                svgElement.style.maxWidth = 'none';
+
+                if (preserveCenter) {
+                    container.scrollLeft = Math.max(0, (scaledWidth * centerRatioX) - container.clientWidth / 2);
+                    container.scrollTop = Math.max(0, (scaledHeight * centerRatioY) - container.clientHeight / 2);
+                }
+
+                const zoomDisplay = document.getElementById('zoomLevel');
+                if (zoomDisplay) {
+                    zoomDisplay.textContent = `${Math.round(this.currentSchemaScale * 100)}%`;
+                }
+            },
+
             async showSchema() {
                 console.log('showSchema called');
                 
@@ -3852,81 +4113,39 @@
                     console.error('Mermaid initialization error:', error);
                 }
 
-                // Build the ERD diagram
-                let erd = '---\nconfig:\n  er:\n    layoutDirection: TB\n---\nerDiagram\n';
-                const processedTables = new Set();
-                
-                // Add tables with relationships first
+                // Build the ERD diagram. Mermaid's ER renderer lays disconnected components left-to-right,
+                // which makes large schemas unreadable. We add hidden layout-only relationships between
+                // components so the diagram flows top-to-bottom without drawing fake relationship lines.
+                const tableKeys = this.buildSchemaDiagramTableKeys(this.metadata.tables);
+                let erd = `${this.getSchemaDiagramFrontmatter()}erDiagram\n    direction TB\n`;
+
+                this.metadata.tables.forEach(table => {
+                    const tableKey = tableKeys.get(this.getSchemaDiagramLookupKey(table.schema, table.name));
+                    erd += this.buildSchemaEntityDefinition(tableKey, table);
+                });
+
                 if (this.metadata.foreignKeys && this.metadata.foreignKeys.length > 0) {
                     console.log('Processing', this.metadata.foreignKeys.length, 'foreign keys');
-                    
+
                     this.metadata.foreignKeys.forEach(fk => {
-                        const parentKey = `${fk.parentSchema}_${fk.parentTable}`;
-                        const refKey = `${fk.referencedSchema}_${fk.referencedTable}`;
-                        
-                        // Add parent table if not already added
-                        if (!processedTables.has(parentKey)) {
-                            const table = this.metadata.tables.find(t => 
-                                t.schema === fk.parentSchema && t.name === fk.parentTable
-                            );
-                            if (table) {
-                                erd += `    ${parentKey} {\n`;
-                                table.columns.slice(0, 10).forEach(col => {
-                                    const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
-                                    const typeInfo = col.dataType || 'string';
-                                    erd += `        ${typeInfo} ${safeColName}\n`;
-                                });
-                                if (table.columns.length > 10) {
-                                    erd += `        string more_columns "..."\n`;
-                                }
-                                erd += `    }\n`;
-                                processedTables.add(parentKey);
-                            }
+                        const childKey = tableKeys.get(this.getSchemaDiagramLookupKey(fk.parentSchema, fk.parentTable));
+                        const parentKey = tableKeys.get(this.getSchemaDiagramLookupKey(fk.referencedSchema, fk.referencedTable));
+
+                        if (childKey && parentKey) {
+                            erd += `    ${parentKey} ||--o{ ${childKey} : "${this.escapeMermaidLabel(fk.name)}"\n`;
                         }
-                        
-                        // Add referenced table if not already added
-                        if (!processedTables.has(refKey)) {
-                            const table = this.metadata.tables.find(t => 
-                                t.schema === fk.referencedSchema && t.name === fk.referencedTable
-                            );
-                            if (table) {
-                                erd += `    ${refKey} {\n`;
-                                table.columns.slice(0, 10).forEach(col => {
-                                    const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
-                                    const typeInfo = col.dataType || 'string';
-                                    erd += `        ${typeInfo} ${safeColName}\n`;
-                                });
-                                if (table.columns.length > 10) {
-                                    erd += `        string more_columns "..."\n`;
-                                }
-                                erd += `    }\n`;
-                                processedTables.add(refKey);
-                            }
-                        }
-                        
-                        // Add relationship
-                        erd += `    ${parentKey} ||--o{ ${refKey} : "${fk.name}"\n`;
                     });
                 }
-                
-                // Add remaining standalone tables
-                this.metadata.tables.forEach(table => {
-                    const tableKey = `${table.schema}_${table.name}`;
-                    if (!processedTables.has(tableKey)) {
-                        erd += `    ${tableKey} {\n`;
-                        table.columns.slice(0, 10).forEach(col => {
-                            const safeColName = col.name.replace(/[^a-zA-Z0-9_]/g, '_');
-                            const typeInfo = col.dataType || 'string';
-                            const nullInfo = col.isNullable ? '' : ' "NOT NULL"';
-                            erd += `        ${typeInfo} ${safeColName}${nullInfo}\n`;
-                        });
-                        if (table.columns.length > 10) {
-                            erd += `        string more_columns "..."\n`;
-                        }
-                        erd += `    }\n`;
-                        processedTables.add(tableKey);
+
+                const components = this.getSchemaDiagramComponents(tableKeys, this.metadata.foreignKeys || []);
+                for (let index = 1; index < components.length; index++) {
+                    const previousAnchor = components[index - 1][0];
+                    const currentAnchor = components[index][0];
+
+                    if (previousAnchor && currentAnchor && previousAnchor !== currentAnchor) {
+                        erd += `    ${previousAnchor} ||..|| ${currentAnchor} : "${this.schemaLayoutEdgeLabel}"\n`;
                     }
-                });
+                }
 
                 console.log('Generated ERD:\n', erd);
 
@@ -3942,6 +4161,8 @@
 
                     const svgElement = container.querySelector('svg');
                     if (svgElement) {
+                        const hiddenLayoutEdges = this.hideSchemaLayoutEdges(svgElement);
+
                         // Normalize the SVG viewBox so we can work with the actual rendered bounds
                         const bbox = svgElement.getBBox();
                         const padding = 32;
@@ -3958,40 +4179,10 @@
                         this.baseSchemaWidth = viewBoxWidth;
                         this.baseSchemaHeight = viewBoxHeight;
 
-                        // Auto-fit to container based on dominant orientation
-                        const containerWidth = Math.max(200, (container.clientWidth || container.offsetWidth || viewBoxWidth) - 40);
-                        const containerHeight = Math.max(200, (container.clientHeight || container.offsetHeight || viewBoxHeight) - 40);
-
-                        const diagramAspectRatio = viewBoxWidth / viewBoxHeight;
-                        const containerAspectRatio = containerWidth / containerHeight;
-
-                        if (diagramAspectRatio < containerAspectRatio) {
-                            // Diagram is taller/narrower - fit to height
-                            this.currentSchemaScale = containerHeight / viewBoxHeight;
-                        } else {
-                            // Diagram is wider/shorter - fit to width
-                            this.currentSchemaScale = containerWidth / viewBoxWidth;
-                        }
-
-                        if (this.currentSchemaScale < 0.2) {
-                            // Large disconnected schemas can render as a wide strip.
-                            // Prefer a readable starting scale with scrolling over a tiny fit-to-window view.
-                            const readableWideScale = Math.min(0.4, Math.max(0.2, containerHeight / viewBoxHeight));
-                            this.currentSchemaScale = Math.max(this.currentSchemaScale, readableWideScale);
-                        }
-
-                        const scaledWidth = viewBoxWidth * this.currentSchemaScale;
-                        const scaledHeight = viewBoxHeight * this.currentSchemaScale;
-
-                        svgElement.style.width = `${scaledWidth}px`;
-                        svgElement.style.height = `${scaledHeight}px`;
-                        svgElement.style.maxWidth = 'none';
-                        
-                        // Update zoom level display
-                        const zoomDisplay = document.getElementById('zoomLevel');
-                        if (zoomDisplay) {
-                            zoomDisplay.textContent = `${Math.round(this.currentSchemaScale * 100)}%`;
-                        }
+                        this.currentSchemaScale = this.getReadableSchemaScale(container, viewBoxWidth, viewBoxHeight);
+                        this.applySchemaScale(svgElement, { preserveCenter: false });
+                        container.scrollLeft = 0;
+                        container.scrollTop = 0;
                         
                         // Setup pan and zoom controls
                         this.setupSchemaPanAndZoom();
@@ -4004,7 +4195,7 @@
                                 hint.style.opacity = '0';
                             }, 3500);
                         }
-                        console.log(`Schema diagram base dimensions set to ${viewBoxWidth.toFixed(0)}x${viewBoxHeight.toFixed(0)}. Rendered at ${Math.round(this.currentSchemaScale * 100)}% scale.`);
+                        console.log(`Schema diagram base dimensions set to ${viewBoxWidth.toFixed(0)}x${viewBoxHeight.toFixed(0)}. Rendered at ${Math.round(this.currentSchemaScale * 100)}% scale. Hidden layout edges: ${hiddenLayoutEdges}.`);
                     }
                 } catch (renderError) {
                     console.error('Mermaid render error:', renderError);
@@ -4028,9 +4219,7 @@
                 
                 if (!svgElement) return;
                 
-                if (factor === 'reset') {
-                    this.currentSchemaScale = 2.5;
-                } else if (factor === 'fit') {
+                if (factor === 'reset' || factor === 'fit') {
                     if (!this.baseSchemaWidth || !this.baseSchemaHeight) {
                         const box = svgElement.viewBox?.baseVal;
                         if (box) {
@@ -4044,35 +4233,17 @@
                     }
 
                     const originalWidth = this.baseSchemaWidth;
-                    const originalHeight = this.baseSchemaHeight;
-
-                    const containerWidth = Math.max(200, (container.clientWidth || container.offsetWidth || originalWidth) - 40);
-                    const containerHeight = Math.max(200, (container.clientHeight || container.offsetHeight || originalHeight) - 40);
-
-                    const diagramAspectRatio = originalWidth / originalHeight;
-                    const containerAspectRatio = containerWidth / containerHeight;
-
-                    if (diagramAspectRatio < containerAspectRatio) {
-                        // Diagram is taller/narrower - fit to height
-                        this.currentSchemaScale = containerHeight / originalHeight;
-                    } else {
-                        // Diagram is wider/shorter - fit to width
-                        this.currentSchemaScale = containerWidth / originalWidth;
-                    }
+                    this.currentSchemaScale = this.getSchemaWidthFitScale(container, originalWidth);
                 } else {
                     this.currentSchemaScale *= factor;
                     this.currentSchemaScale = Math.max(0.1, Math.min(25, this.currentSchemaScale));
                 }
                 
-                const scaledWidth = Math.max(1, this.baseSchemaWidth * this.currentSchemaScale);
-                const scaledHeight = Math.max(1, this.baseSchemaHeight * this.currentSchemaScale);
-                svgElement.style.width = `${scaledWidth}px`;
-                svgElement.style.height = `${scaledHeight}px`;
-                
-                // Update zoom level display
-                const zoomDisplay = document.getElementById('zoomLevel');
-                if (zoomDisplay) {
-                    zoomDisplay.textContent = `${Math.round(this.currentSchemaScale * 100)}%`;
+                this.applySchemaScale(svgElement, { preserveCenter: factor !== 'fit' && factor !== 'reset' });
+
+                if (factor === 'fit' || factor === 'reset') {
+                    container.scrollLeft = 0;
+                    container.scrollTop = 0;
                 }
                 
                 console.log(`Zoom adjusted to ${(this.currentSchemaScale * 100).toFixed(0)}%`);
@@ -4082,45 +4253,48 @@
                 const container = document.getElementById('schemaContainer');
                 if (!container) return;
 
-                // Mouse wheel zoom with Ctrl key
-                container.addEventListener('wheel', (e) => {
-                    if (e.ctrlKey) {
-                        e.preventDefault();
-                        const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-                        this.zoomSchema(zoomFactor);
-                    }
-                }, { passive: false });
+                if (!container.dataset.schemaPanZoomBound) {
+                    // Mouse wheel zoom with Ctrl key
+                    container.addEventListener('wheel', (e) => {
+                        if (e.ctrlKey) {
+                            e.preventDefault();
+                            const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+                            this.zoomSchema(zoomFactor);
+                        }
+                    }, { passive: false });
 
-                // Panning with mouse drag
-                container.addEventListener('mousedown', (e) => {
-                    // Only pan if clicking on the container background, not the SVG content
-                    if (e.target === container || e.target.closest('svg')) {
-                        this.isPanning = true;
-                        this.panStart = { x: e.clientX, y: e.clientY };
-                        this.scrollStart = { x: container.scrollLeft, y: container.scrollTop };
-                        container.style.cursor = 'grabbing';
-                        e.preventDefault();
-                    }
-                });
+                    // Panning with mouse drag
+                    container.addEventListener('mousedown', (e) => {
+                        // Only pan if clicking on the container background, not the SVG content
+                        if (e.target === container || e.target.closest('svg')) {
+                            this.isPanning = true;
+                            this.panStart = { x: e.clientX, y: e.clientY };
+                            this.scrollStart = { x: container.scrollLeft, y: container.scrollTop };
+                            container.style.cursor = 'grabbing';
+                            e.preventDefault();
+                        }
+                    });
 
-                container.addEventListener('mousemove', (e) => {
-                    if (this.isPanning) {
-                        const dx = e.clientX - this.panStart.x;
-                        const dy = e.clientY - this.panStart.y;
-                        container.scrollLeft = this.scrollStart.x - dx;
-                        container.scrollTop = this.scrollStart.y - dy;
-                    }
-                });
+                    container.addEventListener('mousemove', (e) => {
+                        if (this.isPanning) {
+                            const dx = e.clientX - this.panStart.x;
+                            const dy = e.clientY - this.panStart.y;
+                            container.scrollLeft = this.scrollStart.x - dx;
+                            container.scrollTop = this.scrollStart.y - dy;
+                        }
+                    });
 
-                const stopPanning = () => {
-                    if (this.isPanning) {
-                        this.isPanning = false;
-                        container.style.cursor = 'grab';
-                    }
-                };
+                    const stopPanning = () => {
+                        if (this.isPanning) {
+                            this.isPanning = false;
+                            container.style.cursor = 'grab';
+                        }
+                    };
 
-                container.addEventListener('mouseup', stopPanning);
-                container.addEventListener('mouseleave', stopPanning);
+                    container.addEventListener('mouseup', stopPanning);
+                    container.addEventListener('mouseleave', stopPanning);
+                    container.dataset.schemaPanZoomBound = 'true';
+                }
 
                 // Set cursor style
                 container.style.cursor = 'grab';

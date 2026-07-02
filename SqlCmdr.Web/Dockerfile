@@ -20,7 +20,7 @@ ENV SQLCMDR_FILE_LOG=0
 ENV PATH="/opt/dab-tools:${PATH}"
 LABEL org.opencontainers.image.title="sql-commander" \
       org.opencontainers.image.description="Lightweight web-based SQL Server exploration tool" \
-      org.opencontainers.image.version="1.1.1" \
+      org.opencontainers.image.version="1.1.2" \
       org.opencontainers.image.source="https://github.com/JerryNixon/sql-commander" \
       org.opencontainers.image.licenses="MIT"
 RUN adduser --disabled-password --gecos "app" appuser
