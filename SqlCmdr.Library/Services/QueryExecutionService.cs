@@ -172,9 +172,12 @@ public class QueryExecutionService : IQueryExecutionService
         return names;
     }
 
-    // JSON numbers are parsed as IEEE-754 doubles in the browser, so 64-bit integers beyond
-    // 2^53 and high-precision decimals would lose precision silently. Send those as strings so
-    // the grid shows the exact value; every other type serializes normally.
+    // Shapes result values for JSON transport so the grid shows the correct representation:
+    //  - 64-bit integers beyond 2^53 and high-precision decimals lose precision when parsed as
+    //    IEEE-754 doubles in the browser, so they are sent as exact strings.
+    //  - binary values (binary/varbinary/rowversion/timestamp/image) default to base64 under
+    //    System.Text.Json, which is meaningless in SQL; they are sent as 0x-prefixed hex instead.
+    // Every other type serializes normally.
     internal static object? CoerceValueForTransport(object? value)
     {
         return value switch
@@ -182,6 +185,7 @@ public class QueryExecutionService : IQueryExecutionService
             long l => l.ToString(CultureInfo.InvariantCulture),
             ulong ul => ul.ToString(CultureInfo.InvariantCulture),
             decimal d => d.ToString(CultureInfo.InvariantCulture),
+            byte[] bytes => "0x" + Convert.ToHexString(bytes),
             _ => value
         };
     }

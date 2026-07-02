@@ -66,6 +66,15 @@ public class QueryColumnNamingTests
     }
 
     [Fact]
+    public void CoerceValueForTransport_Binary_BecomesHexString()
+    {
+        // Binary must render as 0x-hex (valid T-SQL), not base64.
+        QueryExecutionService.CoerceValueForTransport(new byte[] { 0x48, 0x65, 0x6C, 0x6C, 0x6F }).Should().Be("0x48656C6C6F");
+        QueryExecutionService.CoerceValueForTransport(new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xD1 }).Should().Be("0x00000000000007D1");
+        QueryExecutionService.CoerceValueForTransport(Array.Empty<byte>()).Should().Be("0x");
+    }
+
+    [Fact]
     public void CoerceValueForTransport_OtherTypes_PassThroughUnchanged()
     {
         var timestamp = new DateTime(2024, 1, 2, 3, 4, 5);
