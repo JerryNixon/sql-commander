@@ -106,6 +106,34 @@ public class IndexModel : PageModel
         }
     }
 
+    public async Task<IActionResult> OnPostDatabasesAsync([FromBody] AppSettings settings)
+    {
+        try
+        {
+            if (settings == null) return BadRequest(new DatabaseListResult { Success = false, ErrorMessage = "Invalid settings data" });
+            if (string.IsNullOrWhiteSpace(settings.Server)) return BadRequest(new DatabaseListResult { Success = false, ErrorMessage = "Server is required" });
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(HttpContext.RequestAborted);
+            timeout.CancelAfter(TimeSpan.FromSeconds(12));
+
+            var result = await _metadataService.ListDatabasesAsync(settings, timeout.Token);
+            return new JsonResult(result);
+        }
+        catch (OperationCanceledException) when (!HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            return new JsonResult(new DatabaseListResult
+            {
+                Success = false,
+                ErrorMessage = "Timed out while loading databases. Check the server name, credentials, and network connectivity."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "List databases handler failed");
+            return new JsonResult(new DatabaseListResult { Success = false, ErrorMessage = $"Handler exception: {ex.Message}" });
+        }
+    }
+
     public async Task<IActionResult> OnGetMetadataAsync()
     {
         try

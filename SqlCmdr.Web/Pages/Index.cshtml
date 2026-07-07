@@ -139,7 +139,15 @@
                     </div>
                     <div class="form-group">
                         <label data-i18n="databaseName">Database Name</label>
-                        <input type="text" id="settingDatabase">
+                        <div class="database-picker-row">
+                            <div class="database-combobox" id="databaseCombobox">
+                                <input type="text" id="settingDatabase" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="settingDatabaseOptions" oninput="app.filterDatabaseOptions()" onkeydown="app.handleDatabaseInputKeyDown(event)">
+                                <button type="button" id="databaseDropdownBtn" class="database-dropdown-button" aria-label="Show loaded databases" onclick="app.toggleDatabaseDropdown(event)">⌄</button>
+                                <div id="settingDatabaseOptions" class="database-options" role="listbox" hidden></div>
+                            </div>
+                            <button type="button" id="loadDatabasesBtn" class="database-load-button" onclick="app.loadDatabasesForSettings()">Load databases</button>
+                        </div>
+                        <div class="field-feedback" id="databaseListStatus" role="status" aria-live="polite"></div>
                     </div>
                     <div class="form-group span-2">
                         <label data-i18n="authentication">Authentication</label>
@@ -278,6 +286,13 @@
                         </select>
                     </div>
                     <div class="form-group">
+                        <label>Comma placement</label>
+                        <select id="settingFormatCommaPosition">
+                            <option value="end">End of line</option>
+                            <option value="start">Start of line</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>Expression wrap width</label>
                         <input type="number" id="settingFormatExpressionWidth" value="50" min="20" max="200">
                     </div>
@@ -288,6 +303,8 @@
                     <label class="checkbox-row span-2"><input type="checkbox" id="settingFormatUseTabs"> <span>Indent with tabs instead of spaces</span></label>
                     <label class="checkbox-row span-2"><input type="checkbox" id="settingFormatDenseOperators"> <span>Compact operators (no spaces around = + - / *)</span></label>
                     <label class="checkbox-row span-2"><input type="checkbox" id="settingFormatNewlineBeforeSemicolon"> <span>Put the closing semicolon on its own line</span></label>
+                    <label class="checkbox-row span-2"><input type="checkbox" id="settingFormatInsertAsForAliases"> <span>Insert AS before table, view, and column aliases</span></label>
+                    <label class="checkbox-row span-2"><input type="checkbox" id="settingFormatKeepJoinOnSameLine"> <span>Keep ON on the same line as JOIN</span></label>
                 </div>
             </div>
             <div class="modal-actions">
@@ -398,6 +415,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+    <script type="module" src="~/js/sql-formatting.js" asp-append-version="true"></script>
     <script type="module">
         import('https://cdn.jsdelivr.net/npm/sql-formatter@15.8.2/+esm')
             .then(module => {
@@ -442,6 +460,9 @@
             dataApiStatus: { state: 'stopped', running: false },
             dataApiStatusInterval: null,
             testConnectionFeedbackTimer: null,
+            databaseListAbortController: null,
+            loadedDatabaseOptions: [],
+            highlightedDatabaseIndex: -1,
             dataApiStarting: false,
             dabCopyFeedbackTimer: null,
             showUserObjectsOnly: true,
@@ -591,6 +612,11 @@
                     document.addEventListener('click', (event) => {
                         if (!event.target.closest('#dataApiStatusMenu') && !event.target.closest('#statusDataApiSegment')) {
                             this.hideDataApiMenu();
+                        }
+                    });
+                    document.addEventListener('click', (event) => {
+                        if (!event.target.closest('#databaseCombobox')) {
+                            this.closeDatabaseDropdown();
                         }
                     });
                     document.addEventListener('click', (event) => this.handleFloatingExplorerOutsideClick(event));
@@ -1458,26 +1484,16 @@
                 this.showFormatFeedback(`Formatted SQL${suffix}.`, result.engine === 'sql-formatter' ? 'success' : 'info');
             },
 
+            getSqlFormatting() {
+                const formatting = window.SqlCommanderFormatting;
+                if (!formatting) {
+                    throw new Error('SQL Commander formatting module is not loaded.');
+                }
+                return formatting;
+            },
+
             getFormatOptions() {
-                const s = this.settings || {};
-                const oneOf = (value, allowed, fallback) => allowed.includes(value) ? value : fallback;
-                const clampInt = (value, min, max, fallback) => {
-                    const n = parseInt(value, 10);
-                    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
-                };
-                return {
-                    keywordCase: oneOf(s.formatKeywordCase, ['upper', 'lower', 'preserve'], 'upper'),
-                    functionCase: oneOf(s.formatFunctionCase, ['upper', 'lower', 'preserve'], 'preserve'),
-                    dataTypeCase: oneOf(s.formatDataTypeCase, ['upper', 'lower', 'preserve'], 'preserve'),
-                    indentStyle: oneOf(s.formatIndentStyle, ['standard', 'tabularLeft', 'tabularRight'], 'standard'),
-                    logicalOperatorNewline: oneOf(s.formatLogicalOperatorPosition, ['before', 'after'], 'before'),
-                    tabWidth: clampInt(s.formatIndentSize, 1, 8, 4),
-                    useTabs: s.formatUseTabs === true,
-                    expressionWidth: clampInt(s.formatExpressionWidth, 20, 200, 50),
-                    linesBetweenQueries: clampInt(s.formatLinesBetweenStatements, 0, 5, 1),
-                    denseOperators: s.formatDenseOperators === true,
-                    newlineBeforeSemicolon: s.formatNewlineBeforeSemicolon === true
-                };
+                return this.getSqlFormatting().getFormatOptions(this.settings || {});
             },
 
             getFormattedSql(sql, { allowFallback = true } = {}) {
@@ -1490,8 +1506,7 @@
                 const formatter = window.sqlFormatter;
                 if (formatter && typeof formatter.format === 'function') {
                     try {
-                        return {
-                            text: formatter.format(text, {
+                        const formatted = formatter.format(text, {
                                 language: 'transactsql',
                                 keywordCase: options.keywordCase,
                                 functionCase: options.functionCase,
@@ -1504,7 +1519,10 @@
                                 linesBetweenQueries: options.linesBetweenQueries,
                                 denseOperators: options.denseOperators,
                                 newlineBeforeSemicolon: options.newlineBeforeSemicolon
-                            }).trim(),
+                            }).trim();
+
+                        return {
+                            text: this.applySqlFormattingPostProcessors(formatted, options),
                             engine: 'sql-formatter'
                         };
                     } catch (error) {
@@ -1517,7 +1535,51 @@
                     throw new Error('SQL formatter library is not available.');
                 }
 
-                return { text: this.formatSqlFallback(text, options), engine: 'fallback' };
+                return { text: this.applySqlFormattingPostProcessors(this.formatSqlFallback(text, options), options), engine: 'fallback' };
+            },
+
+            applySqlFormattingPostProcessors(sql, options = {}) {
+                return this.getSqlFormatting().applySqlFormattingPostProcessors(sql, options);
+            },
+
+            formatSqlKeyword(keyword, options = {}) {
+                return this.getSqlFormatting().formatSqlKeyword(keyword, options);
+            },
+
+            isSqlAliasStopWord(value) {
+                return this.getSqlFormatting().isSqlAliasStopWord(value);
+            },
+
+            insertAsForAliases(sql, options = {}) {
+                return this.getSqlFormatting().insertAsForAliases(sql, options);
+            },
+
+            insertAsForColumnAliasLine(line, asKeyword) {
+                return this.getSqlFormatting().insertAsForColumnAliasLine(line, asKeyword);
+            },
+
+            insertAsForTableAliasLine(line, asKeyword) {
+                return this.getSqlFormatting().insertAsForTableAliasLine(line, asKeyword);
+            },
+
+            insertAsForBareTableAliasLine(line, asKeyword) {
+                return this.getSqlFormatting().insertAsForBareTableAliasLine(line, asKeyword);
+            },
+
+            keepJoinOnSameLine(sql, options = {}) {
+                return this.getSqlFormatting().keepJoinOnSameLine(sql, options);
+            },
+
+            applyCommaPlacement(sql, options = {}) {
+                return this.getSqlFormatting().applyCommaPlacement(sql, options);
+            },
+
+            moveCommasToLineStart(sql) {
+                return this.getSqlFormatting().moveCommasToLineStart(sql);
+            },
+
+            moveCommasToLineEnd(sql) {
+                return this.getSqlFormatting().moveCommasToLineEnd(sql);
             },
 
             isEditorPlaceholder(value) {
@@ -3128,11 +3190,14 @@
                 document.getElementById('settingFormatIndentStyle').value = settings.formatIndentStyle || 'standard';
                 document.getElementById('settingFormatIndentSize').value = settings.formatIndentSize ?? 4;
                 document.getElementById('settingFormatLogicalOperator').value = settings.formatLogicalOperatorPosition || 'before';
+                document.getElementById('settingFormatCommaPosition').value = settings.formatCommaPosition || 'end';
                 document.getElementById('settingFormatExpressionWidth').value = settings.formatExpressionWidth ?? 50;
                 document.getElementById('settingFormatLinesBetweenStatements').value = settings.formatLinesBetweenStatements ?? 1;
                 document.getElementById('settingFormatUseTabs').checked = settings.formatUseTabs === true;
                 document.getElementById('settingFormatDenseOperators').checked = settings.formatDenseOperators === true;
                 document.getElementById('settingFormatNewlineBeforeSemicolon').checked = settings.formatNewlineBeforeSemicolon === true;
+                document.getElementById('settingFormatInsertAsForAliases').checked = settings.formatInsertAsForAliases !== false;
+                document.getElementById('settingFormatKeepJoinOnSameLine').checked = settings.formatKeepJoinOnSameLine !== false;
                 document.getElementById('settingConnectionStringInput').value = '';
                 this.toggleAdvancedConnectionSettings(false);
                 this.onAuthTypeChange();
@@ -3168,11 +3233,14 @@
                     formatIndentStyle: document.getElementById('settingFormatIndentStyle').value,
                     formatIndentSize: parseInt(document.getElementById('settingFormatIndentSize').value) || 4,
                     formatLogicalOperatorPosition: document.getElementById('settingFormatLogicalOperator').value,
+                    formatCommaPosition: document.getElementById('settingFormatCommaPosition').value,
                     formatExpressionWidth: parseInt(document.getElementById('settingFormatExpressionWidth').value) || 50,
                     formatLinesBetweenStatements: parseInt(document.getElementById('settingFormatLinesBetweenStatements').value),
                     formatUseTabs: document.getElementById('settingFormatUseTabs').checked,
                     formatDenseOperators: document.getElementById('settingFormatDenseOperators').checked,
-                    formatNewlineBeforeSemicolon: document.getElementById('settingFormatNewlineBeforeSemicolon').checked
+                    formatNewlineBeforeSemicolon: document.getElementById('settingFormatNewlineBeforeSemicolon').checked,
+                    formatInsertAsForAliases: document.getElementById('settingFormatInsertAsForAliases').checked,
+                    formatKeepJoinOnSameLine: document.getElementById('settingFormatKeepJoinOnSameLine').checked
                 };
             },
 
@@ -3326,6 +3394,205 @@
                 } catch (error) {
                     console.error('Test connection error:', error);
                     alert(`❌ Connection test failed:\n\n${error.message}`);
+                }
+            },
+
+            setDatabaseListStatus(message = '', type = 'info') {
+                const status = document.getElementById('databaseListStatus');
+                if (!status) return;
+                status.textContent = message;
+                status.className = `field-feedback ${type || 'info'}`;
+            },
+
+            populateDatabaseOptions(databases) {
+                this.loadedDatabaseOptions = [...new Set((databases || []).map(database => String(database || '').trim()).filter(Boolean))];
+                this.renderDatabaseOptions({ showAll: true });
+            },
+
+            renderDatabaseOptions({ showAll = false } = {}) {
+                const list = document.getElementById('settingDatabaseOptions');
+                if (!list) return [];
+                list.innerHTML = '';
+                const inputValue = document.getElementById('settingDatabase')?.value?.trim().toLowerCase() || '';
+                const databases = showAll || !inputValue
+                    ? this.loadedDatabaseOptions
+                    : this.loadedDatabaseOptions.filter(database => database.toLowerCase().includes(inputValue));
+
+                databases.forEach((database, index) => {
+                    const option = document.createElement('button');
+                    option.type = 'button';
+                    option.className = 'database-option';
+                    option.dataset.databaseName = database;
+                    option.dataset.optionIndex = String(index);
+                    option.setAttribute('role', 'option');
+                    option.setAttribute('aria-selected', 'false');
+                    option.textContent = database;
+                    option.addEventListener('click', () => this.selectDatabaseOption(database));
+                    list.appendChild(option);
+                });
+
+                const empty = document.createElement('div');
+                empty.className = 'database-options-empty';
+                empty.textContent = this.loadedDatabaseOptions.length === 0
+                    ? 'Load databases to show choices.'
+                    : 'No loaded databases match the current text.';
+                empty.hidden = databases.length > 0;
+                list.appendChild(empty);
+
+                this.highlightedDatabaseIndex = databases.length > 0 ? Math.min(Math.max(this.highlightedDatabaseIndex, 0), databases.length - 1) : -1;
+                this.highlightDatabaseOption(this.highlightedDatabaseIndex);
+                return databases;
+            },
+
+            showDatabaseDropdown({ showAll = false } = {}) {
+                const list = document.getElementById('settingDatabaseOptions');
+                const input = document.getElementById('settingDatabase');
+                if (!list || !input) return;
+                if (showAll) {
+                    const currentValue = input.value.trim().toLowerCase();
+                    const currentIndex = this.loadedDatabaseOptions.findIndex(database => database.toLowerCase() === currentValue);
+                    this.highlightedDatabaseIndex = currentIndex >= 0 ? currentIndex : 0;
+                }
+                this.renderDatabaseOptions({ showAll });
+                list.hidden = false;
+                input.setAttribute('aria-expanded', 'true');
+            },
+
+            closeDatabaseDropdown() {
+                document.getElementById('settingDatabaseOptions')?.setAttribute('hidden', '');
+                document.getElementById('settingDatabase')?.setAttribute('aria-expanded', 'false');
+                this.highlightedDatabaseIndex = -1;
+            },
+
+            toggleDatabaseDropdown(event) {
+                event?.stopPropagation();
+                const list = document.getElementById('settingDatabaseOptions');
+                if (!list) return;
+                if (list.hidden) {
+                    this.highlightedDatabaseIndex = 0;
+                    this.showDatabaseDropdown({ showAll: true });
+                } else {
+                    this.closeDatabaseDropdown();
+                }
+            },
+
+            filterDatabaseOptions() {
+                const list = document.getElementById('settingDatabaseOptions');
+                if (!list?.hidden) {
+                    this.highlightedDatabaseIndex = 0;
+                    this.renderDatabaseOptions({ showAll: false });
+                }
+            },
+
+            selectDatabaseOption(database) {
+                const input = document.getElementById('settingDatabase');
+                if (!input) return;
+                input.value = database;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.focus();
+                this.closeDatabaseDropdown();
+            },
+
+            highlightDatabaseOption(index) {
+                const options = Array.from(document.querySelectorAll('#settingDatabaseOptions .database-option'));
+                this.highlightedDatabaseIndex = options.length === 0 ? -1 : Math.min(Math.max(index, 0), options.length - 1);
+                options.forEach((option, optionIndex) => {
+                    const selected = optionIndex === this.highlightedDatabaseIndex;
+                    option.classList.toggle('highlighted', selected);
+                    option.setAttribute('aria-selected', String(selected));
+                    if (selected) option.scrollIntoView({ block: 'nearest' });
+                });
+            },
+
+            handleDatabaseInputKeyDown(event) {
+                const list = document.getElementById('settingDatabaseOptions');
+                const options = () => Array.from(document.querySelectorAll('#settingDatabaseOptions .database-option'));
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    if (list?.hidden) {
+                        this.highlightedDatabaseIndex = 0;
+                        this.showDatabaseDropdown({ showAll: true });
+                    } else {
+                        this.highlightDatabaseOption(this.highlightedDatabaseIndex + 1);
+                    }
+                    return;
+                }
+
+                if (event.key === 'ArrowUp') {
+                    if (list?.hidden) return;
+                    event.preventDefault();
+                    this.highlightDatabaseOption(this.highlightedDatabaseIndex - 1);
+                    return;
+                }
+
+                if (event.key === 'Enter' && !list?.hidden && this.highlightedDatabaseIndex >= 0) {
+                    event.preventDefault();
+                    options()[this.highlightedDatabaseIndex]?.click();
+                    return;
+                }
+
+                if (event.key === 'Escape' && !list?.hidden) {
+                    event.preventDefault();
+                    this.closeDatabaseDropdown();
+                }
+            },
+
+            async loadDatabasesForSettings() {
+                const button = document.getElementById('loadDatabasesBtn');
+                const settings = this.collectSettingsFromForm();
+                if (!settings.server) {
+                    this.setDatabaseListStatus('Enter a server name first.', 'error');
+                    return;
+                }
+
+                if (this.databaseListAbortController) {
+                    this.databaseListAbortController.abort();
+                }
+
+                const controller = new AbortController();
+                this.databaseListAbortController = controller;
+                const originalText = button?.textContent || 'Load databases';
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Loading...';
+                }
+                this.setDatabaseListStatus('Loading accessible databases...', 'info');
+
+                try {
+                    const response = await fetch('?handler=Databases', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(settings),
+                        signal: controller.signal
+                    });
+                    const result = await response.json();
+                    if (!response.ok || !result.success) {
+                        throw new Error(result.errorMessage || response.statusText || 'Could not load databases.');
+                    }
+
+                    const databases = Array.isArray(result.databases) ? result.databases : [];
+                    this.populateDatabaseOptions(databases);
+                    if (databases.length === 0) {
+                        this.setDatabaseListStatus('No accessible databases were returned for these credentials.', 'info');
+                        return;
+                    }
+
+                    this.setDatabaseListStatus(`Loaded ${databases.length} accessible database${databases.length === 1 ? '' : 's'}.`, 'success');
+                    this.highlightedDatabaseIndex = 0;
+                    this.showDatabaseDropdown({ showAll: true });
+                } catch (error) {
+                    if (error?.name === 'AbortError') return;
+                    console.error('Load databases error:', error);
+                    this.populateDatabaseOptions([]);
+                    this.setDatabaseListStatus(`Could not load databases: ${error.message || error}`, 'error');
+                } finally {
+                    if (this.databaseListAbortController === controller) {
+                        this.databaseListAbortController = null;
+                        if (button) {
+                            button.disabled = false;
+                            button.textContent = originalText;
+                        }
+                    }
                 }
             },
 

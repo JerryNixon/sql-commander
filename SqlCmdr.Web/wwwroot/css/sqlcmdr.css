@@ -1291,6 +1291,132 @@ body #statusConnection.failed::before {
     outline-offset: -1px;
 }
 
+.database-picker-row {
+    align-items: stretch;
+    display: flex;
+    gap: 8px;
+}
+
+.database-picker-row input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.database-combobox {
+    align-items: stretch;
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    position: relative;
+}
+
+.database-combobox input {
+    border-bottom-right-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.database-dropdown-button {
+    align-items: center;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-left: 0;
+    border-radius: 0 2px 2px 0;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 30px;
+    font-size: 13px;
+    justify-content: center;
+    padding: 0;
+}
+
+.database-dropdown-button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.database-options {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-blue);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    left: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 4px;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 2px);
+    z-index: 1100;
+}
+
+.database-option {
+    background: transparent;
+    border: 0;
+    border-radius: 2px;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: block;
+    font-size: 13px;
+    line-height: 1.35;
+    overflow: hidden;
+    padding: 6px 8px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.database-option:hover,
+.database-option.highlighted {
+    background: var(--bg-selected);
+}
+
+.database-options-empty {
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 6px 8px;
+}
+
+.database-load-button {
+    background: var(--button-secondary);
+    border: 1px solid transparent;
+    border-radius: 2px;
+    color: var(--text-primary);
+    cursor: pointer;
+    flex: 0 0 auto;
+    font-size: 13px;
+    padding: 6px 10px;
+    transition: background 0.1s;
+    white-space: nowrap;
+}
+
+.database-load-button:hover:not(:disabled) {
+    background: var(--button-secondary-hover);
+}
+
+.database-load-button:disabled {
+    background: var(--button-disabled);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.field-feedback {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+    margin-top: 6px;
+    min-height: 16px;
+}
+
+.field-feedback.success {
+    color: var(--accent-green);
+}
+
+.field-feedback.error {
+    color: var(--accent-red);
+}
+
 .password-wrapper {
     position: relative;
     display: flex;

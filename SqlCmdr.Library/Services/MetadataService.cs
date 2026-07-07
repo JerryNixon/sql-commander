@@ -73,6 +73,72 @@ public class MetadataService : IMetadataService
         return await GetMetadataAsync(settings);
     }
 
+    public async Task<DatabaseListResult> ListDatabasesAsync(AppSettings settings, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        var normalized = settings.Normalize();
+        var candidates = new List<AppSettings> { normalized with { Database = "master" } };
+        if (!string.Equals(normalized.Database, "master", StringComparison.OrdinalIgnoreCase))
+        {
+            candidates.Add(normalized);
+        }
+
+        Exception? lastException = null;
+        foreach (var candidate in candidates)
+        {
+            try
+            {
+                await using var connection = await _connectionFactory.CreateOpenConnectionAsync(candidate, cancellationToken).ConfigureAwait(false);
+                var databases = await ReadAccessibleDatabasesAsync(connection, cancellationToken).ConfigureAwait(false);
+                return new DatabaseListResult
+                {
+                    Success = true,
+                    Databases = databases,
+                    CurrentDatabase = connection.Database
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                _logger.LogDebug(ex, "Failed to list databases using initial catalog {Database}", candidate.Database);
+            }
+        }
+
+        _logger.LogWarning(lastException, "Failed to list databases for {Server}", normalized.Server);
+        return new DatabaseListResult
+        {
+            Success = false,
+            ErrorMessage = lastException?.Message ?? "Could not load databases."
+        };
+    }
+
+    static async Task<IReadOnlyList<string>> ReadAccessibleDatabasesAsync(SqlConnection connection, CancellationToken cancellationToken)
+    {
+        const string sql = @"
+            SELECT [name]
+            FROM sys.databases
+            WHERE [state] = 0
+              AND HAS_DBACCESS([name]) = 1
+            ORDER BY
+                CASE WHEN [name] = DB_NAME() THEN 0 ELSE 1 END,
+                [name];";
+
+        var databases = new List<string>();
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = 10 };
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            databases.Add(reader.GetString(0));
+        }
+
+        return databases;
+    }
+
     async Task<ConnectionMetadata> GetConnectionInfoAsync(SqlConnection connection)
     {
         const string sql = @"

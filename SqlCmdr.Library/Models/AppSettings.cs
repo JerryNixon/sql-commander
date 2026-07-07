@@ -41,6 +41,9 @@ public record AppSettings
     public int FormatLinesBetweenStatements { get; init; } = 1;
     public bool FormatDenseOperators { get; init; } = false;
     public bool FormatNewlineBeforeSemicolon { get; init; } = false;
+    public string FormatCommaPosition { get; init; } = "end";
+    public bool FormatInsertAsForAliases { get; init; } = true;
+    public bool FormatKeepJoinOnSameLine { get; init; } = true;
     public AuthenticationType AuthenticationType { get; init; } = AuthenticationType.SqlAuthentication;
     public string ConnectionString => ToConnectionString(includeCommandTimeout: true);
 
@@ -139,7 +142,8 @@ public record AppSettings
             FormatIndentSize = Math.Clamp(FormatIndentSize, 1, 8),
             FormatLogicalOperatorPosition = string.Equals(FormatLogicalOperatorPosition, "after", StringComparison.OrdinalIgnoreCase) ? "after" : "before",
             FormatExpressionWidth = Math.Clamp(FormatExpressionWidth, 20, 200),
-            FormatLinesBetweenStatements = Math.Clamp(FormatLinesBetweenStatements, 0, 5)
+            FormatLinesBetweenStatements = Math.Clamp(FormatLinesBetweenStatements, 0, 5),
+            FormatCommaPosition = NormalizeCommaPosition(FormatCommaPosition)
         };
     }
 
@@ -161,6 +165,15 @@ public record AppSettings
             "tabularLeft" => "tabularLeft",
             "tabularRight" => "tabularRight",
             _ => "standard"
+        };
+    }
+
+    static string NormalizeCommaPosition(string value)
+    {
+        return value?.Trim().ToLowerInvariant() switch
+        {
+            "start" or "leading" => "start",
+            _ => "end"
         };
     }
 

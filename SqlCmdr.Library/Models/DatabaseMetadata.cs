@@ -33,6 +33,14 @@ public record ConnectionMetadata
     public string VersionShort { get; init; } = string.Empty;
 }
 
+public record DatabaseListResult
+{
+    public bool Success { get; init; }
+    public IReadOnlyList<string> Databases { get; init; } = Array.Empty<string>();
+    public string CurrentDatabase { get; init; } = string.Empty;
+    public string? ErrorMessage { get; init; }
+}
+
 public record ForeignKeyMetadata
 {
     public required string Name { get; init; }

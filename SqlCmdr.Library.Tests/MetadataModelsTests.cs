@@ -542,6 +542,35 @@ public class MetadataModelsTests
     }
 
     [Fact]
+    public void AppSettings_DefaultFormattingOptions_UseConsistentSqlStyleDefaults()
+    {
+        // Act
+        var settings = new AppSettings();
+
+        // Assert
+        settings.FormatCommaPosition.Should().Be("end");
+        settings.FormatInsertAsForAliases.Should().BeTrue();
+        settings.FormatKeepJoinOnSameLine.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("start", "start")]
+    [InlineData("leading", "start")]
+    [InlineData("end", "end")]
+    [InlineData("anything-else", "end")]
+    public void AppSettings_Normalize_NormalizesFormatCommaPosition(string value, string expected)
+    {
+        // Arrange
+        var settings = new AppSettings { FormatCommaPosition = value };
+
+        // Act
+        var normalized = settings.Normalize();
+
+        // Assert
+        normalized.FormatCommaPosition.Should().Be(expected);
+    }
+
+    [Fact]
     public void AppSettings_ToConnectionString_ForAzureDefault_RemovesAuthenticationKeyword()
     {
         // Arrange

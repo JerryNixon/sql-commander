@@ -8,4 +8,5 @@ public interface IMetadataService
     Task<ConnectionTestResult> TestConnectionAsync(string connectionString);
     Task<DatabaseMetadata> GetMetadataAsync(AppSettings settings);
     Task<ConnectionTestResult> TestConnectionAsync(AppSettings settings);
+    Task<DatabaseListResult> ListDatabasesAsync(AppSettings settings, CancellationToken cancellationToken = default);
 }

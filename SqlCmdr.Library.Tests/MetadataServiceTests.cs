@@ -151,6 +151,43 @@ public class MetadataServiceTests
 
     #endregion
 
+    #region ListDatabasesAsync Tests
+
+    [Fact]
+    public async Task ListDatabasesAsync_WithNullSettings_ThrowsArgumentNullException()
+    {
+        // Act
+        Func<Task> act = async () => await _sut.ListDatabasesAsync(null!);
+
+        // Assert
+        await act.Should().ThrowAsync<ArgumentNullException>()
+            .WithParameterName("settings");
+    }
+
+    [Fact]
+    public async Task ListDatabasesAsync_WithInvalidServer_ReturnsFailureResult()
+    {
+        // Arrange
+        var settings = new AppSettings
+        {
+            Server = "InvalidServer12345",
+            Database = "master",
+            ConnectionTimeout = 1,
+            TrustServerCertificate = true
+        };
+
+        // Act
+        var result = await _sut.ListDatabasesAsync(settings);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Success.Should().BeFalse();
+        result.Databases.Should().BeEmpty();
+        result.ErrorMessage.Should().NotBeNullOrWhiteSpace();
+    }
+
+    #endregion
+
     #region GetMetadataAsync Tests
 
     [Fact]

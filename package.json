@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:js": "node --test \"SqlCmdr.Web.Tests/**/*.test.mjs\""
+  }
+}
